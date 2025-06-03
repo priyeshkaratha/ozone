@@ -29,31 +29,37 @@ public class BlockID {
 
   private final ContainerBlockID containerBlockID;
   private long blockCommitSequenceId;
+  private long usedBytes;
   // null value when not set with private constructor.(This is to avoid confusion of replica index 0 & null value).
   // This value would be only set when deserializing from ContainerProtos.DatanodeBlockID or copying from another
   // BlockID object.
   private final Integer replicaIndex;
 
   public BlockID(long containerID, long localID) {
-    this(containerID, localID, 0, null);
+    this(containerID, localID, 0, null, 0);
   }
 
-  private BlockID(long containerID, long localID, long bcsID, Integer repIndex) {
+  public BlockID(long containerID, long localID, long usedBytes) {
+    this(containerID, localID, 0, null, usedBytes);
+  }
+
+  private BlockID(long containerID, long localID, long bcsID, Integer repIndex, long usedBytes) {
     containerBlockID = new ContainerBlockID(containerID, localID);
     blockCommitSequenceId = bcsID;
     this.replicaIndex = repIndex;
+    this.usedBytes = usedBytes;
   }
 
   public BlockID(BlockID blockID) {
     this(blockID.getContainerID(), blockID.getLocalID(), blockID.getBlockCommitSequenceId(),
-        blockID.getReplicaIndex());
+        blockID.getReplicaIndex(), 0);
   }
 
   public BlockID(ContainerBlockID containerBlockID) {
-    this(containerBlockID, 0, null);
+    this(containerBlockID, 0, null, 0);
   }
 
-  private BlockID(ContainerBlockID containerBlockID, long bcsId, Integer repIndex) {
+  private BlockID(ContainerBlockID containerBlockID, long bcsId, Integer repIndex, long usedBytes) {
     this.containerBlockID = containerBlockID;
     blockCommitSequenceId = bcsId;
     this.replicaIndex = repIndex;
@@ -119,13 +125,14 @@ public class BlockID {
     return new BlockID(blockID.getContainerID(),
         blockID.getLocalID(),
         blockID.getBlockCommitSequenceId(),
-        blockID.hasReplicaIndex() ? blockID.getReplicaIndex() : null);
+        blockID.hasReplicaIndex() ? blockID.getReplicaIndex() : null, 0);
   }
 
   @JsonIgnore
   public HddsProtos.BlockID getProtobuf() {
     return HddsProtos.BlockID.newBuilder()
         .setContainerBlockID(containerBlockID.getProtobuf())
+        .setUsedBytes(usedBytes)
         .setBlockCommitSequenceId(blockCommitSequenceId).build();
   }
 
@@ -133,7 +140,7 @@ public class BlockID {
   public static BlockID getFromProtobuf(HddsProtos.BlockID blockID) {
     return new BlockID(
         ContainerBlockID.getFromProtobuf(blockID.getContainerBlockID()),
-        blockID.getBlockCommitSequenceId(), null);
+        blockID.getBlockCommitSequenceId(), null, blockID.getUsedBytes());
   }
 
   @Override

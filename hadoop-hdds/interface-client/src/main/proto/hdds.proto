@@ -406,6 +406,7 @@ message BlockTokenSecretProto {
 message BlockID {
     required ContainerBlockID containerBlockID = 1;
     optional uint64 blockCommitSequenceId = 2 [default = 0];
+    optional uint64 usedBytes = 3;
 }
 
 message UpgradeFinalizationStatus {

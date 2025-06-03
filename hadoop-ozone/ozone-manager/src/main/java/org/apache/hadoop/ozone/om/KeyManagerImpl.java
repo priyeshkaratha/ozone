@@ -771,7 +771,8 @@ public class KeyManagerImpl implements KeyManager {
             if (filter == null || filter.apply(Table.newKeyValue(kv.getKey(), info))) {
               List<BlockID> blockIDS = info.getKeyLocationVersions().stream()
                   .flatMap(versionLocations -> versionLocations.getLocationList().stream()
-                      .map(b -> new BlockID(b.getContainerID(), b.getLocalID()))).collect(Collectors.toList());
+                      .map(b -> new BlockID(b.getContainerID(), b.getLocalID(), b.getLength())))
+                      .collect(Collectors.toList());
               BlockGroup keyBlocks = BlockGroup.newBuilder().setKeyName(kv.getKey())
                   .addAllBlockIDs(blockIDS).build();
               blockGroupList.add(keyBlocks);

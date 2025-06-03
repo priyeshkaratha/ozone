@@ -61,7 +61,7 @@ public final class BlockGroup {
     List<BlockID> blockIDs = new ArrayList<>();
     for (HddsProtos.BlockID block : proto.getBlocksList()) {
       blockIDs.add(new BlockID(block.getContainerBlockID().getContainerID(),
-          block.getContainerBlockID().getLocalID()));
+          block.getContainerBlockID().getLocalID(), block.getUsedBytes()));
     }
     return BlockGroup.newBuilder().setKeyName(proto.getKey())
         .addAllBlockIDs(blockIDs).build();
