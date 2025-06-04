@@ -25,6 +25,7 @@ import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.scm.container.common.helpers.AllocatedBlock;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.ozone.common.BlockGroup;
+import org.apache.hadoop.ozone.common.DeletedBlockGroup;
 
 /**
  *
@@ -55,7 +56,7 @@ public interface BlockManager extends Closeable {
    *                 a particular object key.
    * @throws IOException if exception happens, non of the blocks is deleted.
    */
-  void deleteBlocks(List<BlockGroup> blockIDs) throws IOException;
+  void deleteBlocks(List<DeletedBlockGroup> blockIDs) throws IOException;
 
   /**
    * @return the block deletion transaction log maintained by SCM.
