@@ -40,7 +40,9 @@ import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksDB;
 import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
+import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.ozone.container.common.impl.StorageLocationReport;
+import org.apache.hadoop.ozone.container.common.interfaces.Container;
 import org.apache.hadoop.ozone.container.common.utils.DatanodeStoreCache;
 import org.apache.hadoop.ozone.container.common.utils.HddsVolumeUtil;
 import org.apache.hadoop.ozone.container.common.utils.RawDB;
@@ -199,6 +201,7 @@ public class HddsVolume extends StorageVolume {
     StorageLocationReport.Builder builder = super.reportBuilder();
     if (!builder.isFailed()) {
       builder.setCommitted(getCommittedBytes())
+          .setPendingDeletions(getPendingDeletionBytes())
           .setFreeSpaceToSpare(getFreeSpaceToSpare(builder.getCapacity()));
     }
     return builder;
@@ -307,6 +310,18 @@ public class HddsVolume extends StorageVolume {
     }
 
     return checkDbHealth(dbFile);
+  }
+
+  public long getPendingDeletionBytes() {
+    long total = 0;
+    if (controller != null) {
+      for (Container container : this.controller.getContainers()) {
+        if (container.getContainerData() instanceof ContainerData) {
+          total += container.getContainerData().getPendingDeletionBytes();
+        }
+      }
+    }
+    return total;
   }
 
   @VisibleForTesting

@@ -400,6 +400,7 @@ public class BlockDeletingTask implements BackgroundTask {
         containerData.decrPendingDeletionBlocks(deletedBlocksProcessed);
         containerData.decrBlockCount(deletedBlocksCount);
         containerData.decrBytesUsed(releasedBytes);
+        containerData.decrPendingDeletions(releasedBytes);
         containerData.getVolume().decrementUsedSpace(releasedBytes);
         metrics.incrSuccessCount(deletedBlocksCount);
         metrics.incrSuccessBytes(releasedBytes);

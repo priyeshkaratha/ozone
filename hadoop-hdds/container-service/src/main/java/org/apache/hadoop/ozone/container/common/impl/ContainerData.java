@@ -90,6 +90,7 @@ public abstract class ContainerData {
   private final AtomicLong readCount;
   private final AtomicLong writeCount;
   private final AtomicLong bytesUsed;
+  private final AtomicLong pendingDeletionBytes;
   private final AtomicLong blockCount;
 
   private HddsVolume volume;
@@ -150,6 +151,7 @@ public abstract class ContainerData {
     this.writeBytes =  new AtomicLong(0L);
     this.bytesUsed = new AtomicLong(0L);
     this.blockCount = new AtomicLong(0L);
+    this.pendingDeletionBytes = new AtomicLong(0L);
     this.maxSize = size;
     this.originPipelineId = originPipelineId;
     this.originNodeId = originNodeId;
@@ -486,6 +488,18 @@ public abstract class ContainerData {
    */
   public long incrBytesUsed(long used) {
     return this.bytesUsed.addAndGet(used);
+  }
+
+  public long incrPendingDeletions(long pendingDeletions) {
+    return this.pendingDeletionBytes.addAndGet(pendingDeletions);
+  }
+
+  public long decrPendingDeletions(long pendingDeletions) {
+    return this.pendingDeletionBytes.addAndGet(pendingDeletions);
+  }
+
+  public long getPendingDeletionBytes() {
+    return pendingDeletionBytes.get();
   }
 
   /**
