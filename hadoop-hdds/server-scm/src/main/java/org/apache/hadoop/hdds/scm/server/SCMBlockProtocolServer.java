@@ -270,11 +270,11 @@ public class SCMBlockProtocolServer implements
     for (BlockGroup bg : keyBlocksInfoList) {
       totalBlocks += bg.getAllBlocks().size();
     }
-    List<DeleteBlockGroupResult> results = new ArrayList<>();
     if (LOG.isDebugEnabled()) {
       LOG.debug("SCM is informed by OM to delete {} keys. Total blocks to deleted {}.",
           keyBlocksInfoList.size(), totalBlocks);
     }
+    List<DeleteBlockGroupResult> results = new ArrayList<>();
     Map<String, String> auditMap = Maps.newHashMap();
     ScmBlockLocationProtocolProtos.DeleteScmBlockResult.Result resultCode;
     Exception e = null;
