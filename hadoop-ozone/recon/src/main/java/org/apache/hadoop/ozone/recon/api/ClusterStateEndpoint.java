@@ -122,7 +122,7 @@ public class ClusterStateEndpoint {
         new DatanodeStorageReport(stats.getCapacity().get(),
             stats.getScmUsed().get(), stats.getRemaining().get(),
             stats.getCommitted().get(),
-            stats.getPendingDeletions().get());
+            0); // TODO stats.getPendingDeletions().get()
 
     ClusterStateResponse.Builder builder = ClusterStateResponse.newBuilder();
     GlobalStats volumeRecord = globalStatsDao.findById(
