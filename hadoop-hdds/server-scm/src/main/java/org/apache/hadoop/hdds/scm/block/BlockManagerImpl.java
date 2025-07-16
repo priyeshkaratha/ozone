@@ -225,9 +225,9 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
     for (BlockGroup bg : keyBlocksInfoList) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Deleting blocks {}",
-            StringUtils.join(",", bg.getAllBlocks()));
+            StringUtils.join(",", bg.getAllDeletedBlocks()));
       }
-      for (DeletedBlock block : bg.getAllBlocks()) {
+      for (DeletedBlock block : bg.getAllDeletedBlocks()) {
         long containerID = block.getBlockID().getContainerID();
         if (containerBlocks.containsKey(containerID)) {
           containerBlocks.get(containerID).add(block.getBlockID().getLocalID());
