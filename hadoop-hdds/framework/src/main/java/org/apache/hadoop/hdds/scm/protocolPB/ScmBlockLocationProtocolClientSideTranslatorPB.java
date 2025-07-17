@@ -231,8 +231,12 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
   @Override
   public List<DeleteBlockGroupResult> deleteKeyBlocks(
       List<BlockGroup> keyBlocksInfoList) throws IOException {
+    ScmInfo scmInfo = getScmInfo();
+    boolean useDataDistribution = scmInfo.getMetaDataLayoutVersion() >=
+        HDDSLayoutFeature.DATA_DISTRIBUTION.layoutVersion();
     List<KeyBlocks> keyBlocksProto = keyBlocksInfoList.stream()
-        .map(BlockGroup::getProto).collect(Collectors.toList());
+        .map(blockGroup -> blockGroup.getProto(useDataDistribution))
+        .collect(Collectors.toList());
     DeleteScmKeyBlocksRequestProto request = DeleteScmKeyBlocksRequestProto
         .newBuilder()
         .addAllKeyBlocks(keyBlocksProto)

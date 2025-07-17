@@ -270,7 +270,7 @@ public class SCMBlockProtocolServer implements
       List<BlockGroup> keyBlocksInfoList) throws IOException {
     long totalBlocks = 0;
     for (BlockGroup bg : keyBlocksInfoList) {
-      totalBlocks += (!bg.getBlockIDs().isEmpty()) ? bg.getBlockIDs().size() : bg.getAllDeletedBlocks().size();
+      totalBlocks +=  bg.getAllDeletedBlocks().size();
     }
     List<DeleteBlockGroupResult> results = new ArrayList<>();
     if (LOG.isDebugEnabled()) {
@@ -316,9 +316,6 @@ public class SCMBlockProtocolServer implements
       List<DeleteBlockResult> blockResult = new ArrayList<>();
       for (DeletedBlock b : bg.getAllDeletedBlocks()) {
         blockResult.add(new DeleteBlockResult(b.getBlockID(), resultCode));
-      }
-      for (BlockID b : bg.getBlockIDs()) {
-        blockResult.add(new DeleteBlockResult(b, resultCode));
       }
       results.add(new DeleteBlockGroupResult(bg.getGroupID(), blockResult));
     }
