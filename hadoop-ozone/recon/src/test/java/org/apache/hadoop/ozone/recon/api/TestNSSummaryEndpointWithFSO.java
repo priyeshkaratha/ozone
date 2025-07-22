@@ -334,22 +334,22 @@ public class TestNSSummaryEndpointWithFSO {
 
   // some expected answers
   private static final long ROOT_DATA_SIZE = KEY_ONE_SIZE + KEY_TWO_SIZE +
-      KEY_THREE_SIZE + KEY_FOUR_SIZE + KEY_FIVE_SIZE + KEY_SIX_SIZE +
+      KEY_THREE_SIZE + KEY_FOUR_SIZE + KEY_FIVE_SIZE + KEY_SIX_SIZE + KEY_SEVEN_SIZE +
       KEY_EIGHT_SIZE + KEY_NINE_SIZE + KEY_TEN_SIZE + KEY_ELEVEN_SIZE;
   private static final long VOL_DATA_SIZE = KEY_ONE_SIZE + KEY_TWO_SIZE +
-          KEY_THREE_SIZE + KEY_FOUR_SIZE + KEY_FIVE_SIZE + KEY_SIX_SIZE;
+          KEY_THREE_SIZE + KEY_FOUR_SIZE + KEY_FIVE_SIZE + KEY_SIX_SIZE + KEY_SEVEN_SIZE;
 
   private static final long VOL_TWO_DATA_SIZE =
       KEY_EIGHT_SIZE + KEY_NINE_SIZE + KEY_TEN_SIZE + KEY_ELEVEN_SIZE;
 
   private static final long BUCKET_ONE_DATA_SIZE = KEY_ONE_SIZE + KEY_TWO_SIZE +
-          KEY_THREE_SIZE + KEY_SIX_SIZE;
+          KEY_THREE_SIZE + KEY_SIX_SIZE + KEY_SEVEN_SIZE;
 
   private static final long BUCKET_TWO_DATA_SIZE =
           KEY_FOUR_SIZE + KEY_FIVE_SIZE;
 
   private static final long DIR_ONE_DATA_SIZE = KEY_TWO_SIZE +
-          KEY_THREE_SIZE + KEY_SIX_SIZE;
+          KEY_THREE_SIZE + KEY_SIX_SIZE + KEY_SEVEN_SIZE;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -675,10 +675,10 @@ public class TestNSSummaryEndpointWithFSO {
 
   @Test
   public void testFileSizeDist() throws Exception {
-    checkFileSizeDist(ROOT_PATH, 2, 3, 4, 1);
-    checkFileSizeDist(VOL_PATH, 2, 1, 2, 1);
-    checkFileSizeDist(BUCKET_ONE_PATH, 1, 1, 1, 1);
-    checkFileSizeDist(DIR_ONE_PATH, 0, 1, 1, 1);
+    checkFileSizeDist(ROOT_PATH, 2, 3, 4, 2);
+    checkFileSizeDist(VOL_PATH, 2, 1, 2, 2);
+    checkFileSizeDist(BUCKET_ONE_PATH, 1, 1, 1, 2);
+    checkFileSizeDist(DIR_ONE_PATH, 0, 1, 1, 2);
   }
 
   public void checkFileSizeDist(String path, int bin0,
@@ -898,6 +898,17 @@ public class TestNSSummaryEndpointWithFSO {
           VOL_OBJECT_ID,
           KEY_SIX_SIZE,
           getBucketLayout());
+    writeKeyToOm(reconOMMetadataManager,
+        KEY_SEVEN,
+        BUCKET_ONE,
+        VOL,
+        FILE_SEVEN,
+        KEY_SEVEN_OBJECT_ID,
+        DIR_ONE_OBJECT_ID,
+        BUCKET_ONE_OBJECT_ID,
+        VOL_OBJECT_ID,
+        KEY_SEVEN_SIZE,
+        getBucketLayout());
     writeKeyToOm(reconOMMetadataManager,
           KEY_EIGHT,
           BUCKET_THREE,
