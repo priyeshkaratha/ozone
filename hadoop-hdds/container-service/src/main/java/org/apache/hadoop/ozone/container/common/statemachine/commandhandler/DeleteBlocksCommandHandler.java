@@ -641,11 +641,11 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
         // update pending deletion blocks count and delete transaction ID in
         // in-memory container status
         long pendingBytes = delTX.getTotalBlockSize();
-        containerData.incrPendingDeletionBlocks(newDeletionBlocks, pendingBytes);
         metadataTable
             .putWithBatch(batchOperation,
                 containerData.getPendingDeleteBlockBytesKey(),
                 pendingBytes);
+        containerData.incrPendingDeletionBlocks(newDeletionBlocks, pendingBytes);
       }
 
       //update latest delete transactionid
