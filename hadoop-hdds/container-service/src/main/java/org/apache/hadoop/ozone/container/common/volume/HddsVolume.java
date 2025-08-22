@@ -43,6 +43,7 @@ import org.apache.hadoop.hdds.utils.db.managed.ManagedOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksDB;
 import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
 import org.apache.hadoop.ozone.common.Storage;
+import org.apache.hadoop.ozone.container.common.helpers.BlockDeletingServiceMetrics;
 import org.apache.hadoop.ozone.container.common.impl.StorageLocationReport;
 import org.apache.hadoop.ozone.container.common.utils.DatanodeStoreCache;
 import org.apache.hadoop.ozone.container.common.utils.HddsVolumeUtil;
@@ -200,10 +201,11 @@ public class HddsVolume extends StorageVolume {
 
   @Override
   protected StorageLocationReport.Builder reportBuilder() {
+    BlockDeletingServiceMetrics metrics = BlockDeletingServiceMetrics.create();
     StorageLocationReport.Builder builder = super.reportBuilder();
     if (!builder.isFailed()) {
       builder.setCommitted(getCommittedBytes())
-          .setPendingDeletions(getPendingDeletionBytes())
+          .setPendingDeletions(metrics.getTotalPendingBlockBytes())
           .setFreeSpaceToSpare(getFreeSpaceToSpare(builder.getCapacity()));
     }
     return builder;

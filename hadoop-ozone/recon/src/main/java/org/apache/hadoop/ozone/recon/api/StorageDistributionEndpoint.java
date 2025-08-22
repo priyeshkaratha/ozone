@@ -211,7 +211,7 @@ public class StorageDistributionEndpoint {
     long used = nodeStat.getScmUsed().get();
     long remaining = nodeStat.getRemaining().get();
     long committed = nodeStat.getCommitted().get();
-    long pendingDeletions = 0; // TODO nodeStat.getPendingDeletions().get();
+    long pendingDeletions = nodeStat.getPendingDeletions().get();
     return new DatanodeStorageReport(capacity, used, remaining, committed, pendingDeletions);
   }
 }
