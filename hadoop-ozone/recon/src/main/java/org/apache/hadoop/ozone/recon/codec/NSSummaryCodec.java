@@ -92,11 +92,43 @@ public final class NSSummaryCodec implements Codec<NSSummary> {
 
   @Override
   public NSSummary fromPersistedFormatImpl(byte[] rawData) throws IOException {
-    DataInputStream in = new DataInputStream(new ByteArrayInputStream(rawData));
+    try {
+      DataInputStream in = new DataInputStream(new ByteArrayInputStream(rawData));
+      return decodeNSSummaryFromInputStream(in, true);
+    } catch (Exception e) {
+      DataInputStream in = new DataInputStream(new ByteArrayInputStream(rawData));
+      return decodeNSSummaryFromInputStream(in, false);
+    }
+  }
+
+  @Override
+  public NSSummary copyObject(NSSummary object) {
+    NSSummary copy = new NSSummary();
+    copy.setNumOfFiles(object.getNumOfFiles());
+    copy.setSizeOfFiles(object.getSizeOfFiles());
+    copy.setReplicatedSizeOfFiles(object.getReplicatedSizeOfFiles());
+    copy.setFileSizeBucket(object.getFileSizeBucket());
+    copy.setChildDir(object.getChildDir());
+    copy.setDirName(object.getDirName());
+    copy.setParentId(object.getParentId());
+    return copy;
+  }
+
+  private NSSummary decodeNSSummaryFromInputStream(DataInputStream in, boolean withReplica) throws IOException {
     NSSummary res = new NSSummary();
     res.setNumOfFiles(in.readInt());
     res.setSizeOfFiles(in.readLong());
-    res.setReplicatedSizeOfFiles(in.readLong());
+
+    // Default value for backward compatibility
+    long replicatedSize = 0L;
+
+    // Check if there's enough data to read replicatedSizeOfFiles
+    if (in.available() >= Long.BYTES + Short.BYTES) {
+      replicatedSize = in.readLong();
+    }
+
+    res.setReplicatedSizeOfFiles(replicatedSize);
+
     short len = in.readShort();
     assert (len == (short) ReconConstants.NUM_OF_FILE_SIZE_BINS);
     int[] fileSizeBucket = new int[len];
@@ -131,18 +163,5 @@ public final class NSSummaryCodec implements Codec<NSSummary> {
       res.setParentId(-1);
     }
     return res;
-  }
-
-  @Override
-  public NSSummary copyObject(NSSummary object) {
-    NSSummary copy = new NSSummary();
-    copy.setNumOfFiles(object.getNumOfFiles());
-    copy.setSizeOfFiles(object.getSizeOfFiles());
-    copy.setReplicatedSizeOfFiles(object.getReplicatedSizeOfFiles());
-    copy.setFileSizeBucket(object.getFileSizeBucket());
-    copy.setChildDir(object.getChildDir());
-    copy.setDirName(object.getDirName());
-    copy.setParentId(object.getParentId());
-    return copy;
   }
 }
