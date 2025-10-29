@@ -223,16 +223,21 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
     for (BlockGroup bg : keyBlocksInfoList) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Deleting blocks {}",
-            StringUtils.join(",", bg.getAllDeletedBlocks()));
+            StringUtils.join(",", bg.getAllBlockIDs()));
       }
 
-      for (DeletedBlock block : bg.getAllDeletedBlocks()) {
-        long containerID = block.getBlockID().getContainerID();
+      for (int i = 0; i < bg.getAllBlockIDs().size(); i++) {
+        DeletedBlock deletedBlock = new DeletedBlock(bg.getAllBlockIDs().get(i), 0, 0);
+        long containerID = bg.getAllBlockIDs().get(i).getContainerID();
+        if (bg.getAllBlockIDs().size() == bg.getAllBlockSizes().size()) {
+          deletedBlock = new DeletedBlock(bg.getAllBlockIDs().get(i),
+              bg.getAllBlockSizes().get(i), bg.getReplicatedBlockSizes().get(i));
+        }
         if (containerBlocks.containsKey(containerID)) {
-          containerBlocks.get(containerID).add(block);
+          containerBlocks.get(containerID).add(deletedBlock);
         } else {
           List<DeletedBlock> item = new ArrayList<>();
-          item.add(block);
+          item.add(deletedBlock);
           containerBlocks.put(containerID, item);
         }
       }

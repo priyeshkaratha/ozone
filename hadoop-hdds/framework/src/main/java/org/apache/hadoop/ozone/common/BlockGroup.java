@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.KeyBlocks;
 
 /**
@@ -30,16 +29,28 @@ import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.KeyB
 public final class BlockGroup {
 
   private String groupID;
-  private List<DeletedBlock> deletedBlocks;
+  private List<BlockID> blockIDs;
+  private List<Long> blockSizes;
+  private List<Long> replicatedBlockSizes;
   public static final long SIZE_NOT_AVAILABLE = -1;
 
-  private BlockGroup(String groupID, List<DeletedBlock> deletedBlocks) {
+  private BlockGroup(String groupID, List<BlockID> blockIDs, List<Long> blockSizes, List<Long> replicatedBlockSizes) {
     this.groupID = groupID;
-    this.deletedBlocks = deletedBlocks == null ? new ArrayList<>() : deletedBlocks;
+    this.blockIDs = blockIDs;
+    this.blockSizes = blockSizes;
+    this.replicatedBlockSizes = replicatedBlockSizes;
   }
 
-  public List<DeletedBlock> getAllDeletedBlocks() {
-    return deletedBlocks;
+  public List<BlockID> getAllBlockIDs() {
+    return blockIDs;
+  }
+
+  public List<Long> getAllBlockSizes() {
+    return blockSizes;
+  }
+
+  public List<Long> getReplicatedBlockSizes() {
+    return replicatedBlockSizes;
   }
 
   public String getGroupID() {
@@ -47,31 +58,13 @@ public final class BlockGroup {
   }
 
   public KeyBlocks getProto() {
-    return getProtoForDeletedBlock();
-  }
-
-  public KeyBlocks getProto(boolean isIncludeBlockSize) {
-    return isIncludeBlockSize ? getProtoForDeletedBlock() : getProtoForBlockID();
-  }
-
-  private KeyBlocks getProtoForDeletedBlock() {
     KeyBlocks.Builder kbb = KeyBlocks.newBuilder();
-    for (DeletedBlock block : deletedBlocks) {
-      ScmBlockLocationProtocolProtos.DeletedBlock deletedBlock = ScmBlockLocationProtocolProtos.DeletedBlock
-          .newBuilder()
-          .setBlockId(block.getBlockID().getProtobuf())
-          .setSize(block.getSize())
-          .setReplicatedSize(block.getReplicatedSize())
-          .build();
-      kbb.addDeletedBlocks(deletedBlock);
-    }
-    return kbb.setKey(groupID).build();
-  }
-
-  private KeyBlocks getProtoForBlockID() {
-    KeyBlocks.Builder kbb = KeyBlocks.newBuilder();
-    for (DeletedBlock block : deletedBlocks) {
-      kbb.addBlocks(block.getBlockID().getProtobuf());
+    for (int i = 0; i < blockIDs.size(); i++) {
+      kbb.addBlocks(blockIDs.get(i).getProtobuf());
+      if (replicatedBlockSizes.size() > i) {
+        kbb.addSize(blockSizes.get(i));
+        kbb.addReplicatedSize(replicatedBlockSizes.get(i));
+      }
     }
     return kbb.setKey(groupID).build();
   }
@@ -82,23 +75,19 @@ public final class BlockGroup {
    * @return a group of blocks.
    */
   public static BlockGroup getFromProto(KeyBlocks proto) {
-    List<DeletedBlock> deletedBlocks = new ArrayList<>();
-    if (proto.getBlocksCount() > 0) {
-      for (HddsProtos.BlockID block : proto.getBlocksList()) {
-        deletedBlocks.add(new DeletedBlock(new BlockID(block.getContainerBlockID().getContainerID(),
-            block.getContainerBlockID().getLocalID()), SIZE_NOT_AVAILABLE, SIZE_NOT_AVAILABLE));
-      }
-    } else {
-      for (ScmBlockLocationProtocolProtos.DeletedBlock block : proto.getDeletedBlocksList()) {
-        HddsProtos.ContainerBlockID containerBlockId = block.getBlockId().getContainerBlockID();
-        deletedBlocks.add(new DeletedBlock(new BlockID(containerBlockId.getContainerID(),
-            containerBlockId.getLocalID()),
-            block.getSize(),
-            block.getReplicatedSize()));
-      }
+    if (proto == null) {
+      return null;
+    }
+
+    List<BlockID> blockIDS = new ArrayList<>();
+    for (HddsProtos.BlockID blockId: proto.getBlocksList()) {
+      blockIDS.add(BlockID.getFromProtobuf(blockId));
     }
     return BlockGroup.newBuilder().setKeyName(proto.getKey())
-        .addAllDeletedBlocks(deletedBlocks).build();
+        .addAllBlockIDs(blockIDS)
+        .addAllBlockSize(proto.getSizeList())
+        .addAllReplicatedBlockSize(proto.getReplicatedSizeList())
+        .build();
   }
 
   public static Builder newBuilder() {
@@ -109,7 +98,9 @@ public final class BlockGroup {
   public String toString() {
     return "BlockGroup[" +
         "groupID='" + groupID + '\'' +
-        ", deletedBlocks=" + deletedBlocks +
+        ", blockIDs=" + blockIDs +
+        ", blockSizes=" + blockSizes +
+        ", replicatedBlockSizes=" + replicatedBlockSizes +
         ']';
   }
 
@@ -119,20 +110,40 @@ public final class BlockGroup {
   public static class Builder {
 
     private String groupID;
-    private List<DeletedBlock> blocks;
+    private List<BlockID> blocksIDs;
+    private List<Long> blockSizes;
+    private List<Long> replicatedBlockSizes;
 
     public Builder setKeyName(String blockGroupID) {
       this.groupID = blockGroupID;
       return this;
     }
 
-    public Builder addAllDeletedBlocks(List<DeletedBlock> keyBlocks) {
-      this.blocks = keyBlocks;
+    public Builder addBlockID(BlockID blockID) {
+      if (blocksIDs == null) {
+        blocksIDs = new ArrayList<>();
+      }
+      blocksIDs.add(blockID);
+      return this;
+    }
+
+    public Builder addAllBlockSize(List<Long> blockSize) {
+      this.blockSizes = blockSize;
+      return this;
+    }
+
+    public Builder addAllReplicatedBlockSize(List<Long> replicatedSizes) {
+      replicatedBlockSizes = replicatedSizes;
+      return this;
+    }
+
+    public Builder addAllBlockIDs(List<BlockID> blockIDS) {
+      this.blocksIDs = blockIDS;
       return this;
     }
 
     public BlockGroup build() {
-      return new BlockGroup(groupID, blocks);
+      return new BlockGroup(groupID, blocksIDs, blockSizes, replicatedBlockSizes);
     }
   }
 }

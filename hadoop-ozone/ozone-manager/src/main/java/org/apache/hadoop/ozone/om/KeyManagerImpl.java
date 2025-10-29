@@ -138,7 +138,6 @@ import org.apache.hadoop.net.TableMapping;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.common.BlockGroup;
-import org.apache.hadoop.ozone.common.DeletedBlock;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
@@ -771,13 +770,25 @@ public class KeyManagerImpl implements KeyManager {
 
             // Skip the key if the filter doesn't allow the file to be deleted.
             if (filter == null || filter.apply(Table.newKeyValue(kv.getKey(), info))) {
-              List<DeletedBlock> deletedBlocks = info.getKeyLocationVersions().stream()
+              List<BlockID> blockIDS = info.getKeyLocationVersions().stream()
                   .flatMap(versionLocations -> versionLocations.getLocationList().stream()
-                      .map(b -> new DeletedBlock(new BlockID(b.getContainerID(), b.getLocalID()),
-                          b.getLength(), QuotaUtil.getReplicatedSize(b.getLength(), info.getReplicationConfig()))))
+                      .map(b -> new BlockID(b.getContainerID(), b.getLocalID()))).collect(Collectors.toList());
+              List<Long> blockSizes = info.getKeyLocationVersions().stream()
+                  .flatMap(versionLocations -> versionLocations.getLocationList().stream()
+                      .map(b -> b.getLength())).collect(Collectors.toList());
+
+              List<Long> replicatedBlockSizes = info.getKeyLocationVersions().stream()
+                  .flatMap(versionLocations -> versionLocations.getLocationList()
+                      .stream()
+                      .map(b -> QuotaUtil.getReplicatedSize(b.getLength(), info.getReplicationConfig())))
                   .collect(Collectors.toList());
+
               BlockGroup keyBlocks = BlockGroup.newBuilder().setKeyName(kv.getKey())
-                  .addAllDeletedBlocks(deletedBlocks).build();
+                  .addAllBlockIDs(blockIDS)
+                  .addAllBlockSize(blockSizes)
+                  .addAllReplicatedBlockSize(replicatedBlockSizes)
+                  .build();
+
               keyBlockReplicatedSize.put(keyBlocks.getGroupID(), info.getReplicatedSize());
               blockGroupList.add(keyBlocks);
               currentCount++;
