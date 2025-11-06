@@ -29,7 +29,6 @@ import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerDataProto;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionInfo;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionSummary;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
@@ -127,7 +126,7 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   ContainerListResult listContainer(long startContainerID,
-      int count) throws IOException;
+                                    int count) throws IOException;
 
   /**
    * Lists a range of containers and get their info.
@@ -141,9 +140,9 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   ContainerListResult listContainer(long startContainerID, int count,
-      HddsProtos.LifeCycleState state,
-      HddsProtos.ReplicationType replicationType,
-      ReplicationConfig replicationConfig)
+                                    HddsProtos.LifeCycleState state,
+                                    HddsProtos.ReplicationType replicationType,
+                                    ReplicationConfig replicationConfig)
       throws IOException;
 
   /**
@@ -182,8 +181,8 @@ public interface ScmClient extends Closeable {
    */
   @Deprecated
   ContainerWithPipeline createContainer(HddsProtos.ReplicationType type,
-      HddsProtos.ReplicationFactor replicationFactor,
-      String owner) throws IOException;
+                                        HddsProtos.ReplicationFactor replicationFactor,
+                                        String owner) throws IOException;
 
   ContainerWithPipeline createContainer(ReplicationConfig replicationConfig, String owner) throws IOException;
 
@@ -208,8 +207,8 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   List<HddsProtos.Node> queryNode(HddsProtos.NodeOperationalState opState,
-      HddsProtos.NodeState nodeState, HddsProtos.QueryScope queryScope,
-      String poolName) throws IOException;
+                                  HddsProtos.NodeState nodeState, HddsProtos.QueryScope queryScope,
+                                  String poolName) throws IOException;
 
   /**
    * Returns a node with the given UUID.
@@ -258,7 +257,7 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   List<DatanodeAdminError> startMaintenanceNodes(List<String> hosts,
-      int endHours, boolean force) throws IOException;
+                                                 int endHours, boolean force) throws IOException;
 
   /**
    * Creates a specified replication pipeline.
@@ -268,7 +267,7 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   Pipeline createReplicationPipeline(HddsProtos.ReplicationType type,
-      HddsProtos.ReplicationFactor factor, HddsProtos.NodePool nodePool)
+                                     HddsProtos.ReplicationFactor factor, HddsProtos.NodePool nodePool)
       throws IOException;
 
   /**
@@ -412,26 +411,6 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   void transferLeadership(String newLeaderId) throws IOException;
-
-  /**
-   * Return the failed transactions of the Deleted blocks. A transaction is
-   * considered to be failed if it has been sent more than MAX_RETRY limit
-   * and its count is reset to -1.
-   *
-   * @param count Maximum num of returned transactions, if {@literal < 0}. return all.
-   * @param startTxId The least transaction id to start with.
-   * @return a list of failed deleted block transactions.
-   * @throws IOException
-   */
-  List<DeletedBlocksTransactionInfo> getFailedDeletedBlockTxn(int count,
-      long startTxId) throws IOException;
-
-  /**
-   * Reset the failed deleted block retry count.
-   * @param txIDs transactionId list to be reset
-   * @throws IOException
-   */
-  int resetDeletedBlockRetryCount(List<Long> txIDs) throws IOException;
 
   /**
    * Get deleted block summary.
