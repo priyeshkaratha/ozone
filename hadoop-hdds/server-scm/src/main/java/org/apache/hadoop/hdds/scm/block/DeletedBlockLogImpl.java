@@ -23,7 +23,6 @@ import static org.apache.hadoop.hdds.scm.block.SCMDeletedBlockTransactionStatusM
 import static org.apache.hadoop.hdds.scm.ha.SequenceIdGenerator.DEL_TXN_ID;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Duration;
@@ -145,37 +144,6 @@ public class DeletedBlockLogImpl
     return deletedBlockLogStateManager;
   }
 
-  @Override
-  public List<DeletedBlocksTransaction> getFailedTransactions(int count,
-      long startTxId) throws IOException {
-    lock.lock();
-    try {
-      final List<DeletedBlocksTransaction> failedTXs = Lists.newArrayList();
-      try (Table.KeyValueIterator<Long, DeletedBlocksTransaction> iter =
-               deletedBlockLogStateManager.getReadOnlyIterator()) {
-        if (count == LIST_ALL_FAILED_TRANSACTIONS) {
-          while (iter.hasNext()) {
-            DeletedBlocksTransaction delTX = iter.next().getValue();
-            if (delTX.getCount() == -1) {
-              failedTXs.add(delTX);
-            }
-          }
-        } else {
-          iter.seek(startTxId);
-          while (iter.hasNext() && failedTXs.size() < count) {
-            DeletedBlocksTransaction delTX = iter.next().getValue();
-            if (delTX.getCount() == -1 && delTX.getTxID() >= startTxId) {
-              failedTXs.add(delTX);
-            }
-          }
-        }
-      }
-      return failedTXs;
-    } finally {
-      lock.unlock();
-    }
-  }
-
   /**
    * {@inheritDoc}
    *
@@ -197,9 +165,9 @@ public class DeletedBlockLogImpl
         .addAllLocalID(localIdList)
         .setCount(0);
 
-    if (VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.DATA_DISTRIBUTION)) {
+    if (VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.STORAGE_DATA_DISTRIBUTION)) {
       long replicatedSize = blocks.stream().mapToLong(DeletedBlock::getReplicatedSize).sum();
-      // even when HDDSLayoutFeature.DATA_DISTRIBUTION is finalized, old OM can still call the old API
+      // even when HDDSLayoutFeature.STORAGE_DATA_DISTRIBUTION is finalized, old OM can still call the old API
       if (replicatedSize >= 0) {
         builder.setTotalBlockReplicatedSize(replicatedSize);
         builder.setTotalBlockSize(blocks.stream().mapToLong(DeletedBlock::getSize).sum());
@@ -421,7 +389,7 @@ public class DeletedBlockLogImpl
           DeletedBlocksTransaction txn = keyValue.getValue();
           final ContainerID id = ContainerID.valueOf(txn.getContainerID());
           final ContainerInfo container = containerManager.getContainer(id);
-          if (VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.DATA_DISTRIBUTION) &&
+          if (VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.STORAGE_DATA_DISTRIBUTION) &&
               txn.hasTotalBlockReplicatedSize()) {
             transactionStatusManager.getTxSizeMap().put(txn.getTxID(),
                 new SCMDeletedBlockTransactionStatusManager.TxBlockInfo(txn.getLocalIDCount(),

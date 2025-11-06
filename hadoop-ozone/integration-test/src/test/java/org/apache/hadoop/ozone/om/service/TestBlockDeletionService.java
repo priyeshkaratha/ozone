@@ -17,8 +17,8 @@
 
 package org.apache.hadoop.ozone.om.service;
 
-import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.DATA_DISTRIBUTION;
 import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.HBASE_SUPPORT;
+import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.STORAGE_DATA_DISTRIBUTION;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
 import static org.apache.hadoop.ozone.common.BlockGroup.SIZE_NOT_AVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -112,7 +112,8 @@ public class TestBlockDeletionService {
         .build();
     cluster.waitForClusterToBeReady();
     scmClient = cluster.getStorageContainerLocationClient();
-    assertEquals(HBASE_SUPPORT.ordinal(), scmClient.getScmInfo().getMetaDataLayoutVersion());
+    assertEquals(HBASE_SUPPORT.ordinal(),
+        cluster.getStorageContainerManager().getLayoutVersionManager().getMetadataLayoutVersion());
     metrics = cluster.getStorageContainerManager().getBlockProtocolServer().getMetrics();
 
     OzoneClient ozoneClient = cluster.newClient();
@@ -161,7 +162,8 @@ public class TestBlockDeletionService {
     });
     finalizationFuture.get();
     TestHddsUpgradeUtils.waitForFinalizationFromClient(scmClient, CLIENT_ID);
-    assertEquals(DATA_DISTRIBUTION.ordinal(), scmClient.getScmInfo().getMetaDataLayoutVersion());
+    assertEquals(STORAGE_DATA_DISTRIBUTION.ordinal(),
+        cluster.getStorageContainerManager().getLayoutVersionManager().getMetadataLayoutVersion());
 
     // POST-UPGRADE
     //Step 6: Repeat the same steps in pre-upgrade
@@ -222,14 +224,14 @@ public class TestBlockDeletionService {
     List<BlockGroup> blockGroups = captor.getAllValues().get(index);
 
     long totalUsedBytes = blockGroups.stream()
-        .flatMap(group -> group.getAllDeletedBlocks().stream())
+        .flatMap(group -> group.getDeletedBlocks().stream())
         .mapToLong(DeletedBlock::getReplicatedSize).sum();
 
     long totalUnreplicatedBytes = blockGroups.stream()
-        .flatMap(group -> group.getAllDeletedBlocks().stream())
+        .flatMap(group -> group.getDeletedBlocks().stream())
         .mapToLong(DeletedBlock::getSize).sum();
 
-    assertEquals(1, blockGroups.get(0).getAllDeletedBlocks().size());
+    assertEquals(1, blockGroups.get(0).getDeletedBlocks().size());
     assertEquals(isIncludeBlockSize ?
         QuotaUtil.getReplicatedSize(KEY_SIZE, replicationConfig) : SIZE_NOT_AVAILABLE, totalUsedBytes);
     assertEquals(isIncludeBlockSize ? KEY_SIZE : SIZE_NOT_AVAILABLE, totalUnreplicatedBytes);

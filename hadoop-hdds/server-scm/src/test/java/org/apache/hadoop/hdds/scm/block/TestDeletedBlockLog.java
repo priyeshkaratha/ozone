@@ -17,13 +17,11 @@
 
 package org.apache.hadoop.hdds.scm.block;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.apache.hadoop.hdds.scm.block.SCMDeletedBlockTransactionStatusManager.EMPTY_SUMMARY;
 import static org.apache.hadoop.ozone.common.BlockGroup.SIZE_NOT_AVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeast;
@@ -765,7 +763,7 @@ public class TestDeletedBlockLog {
     DatanodeDetails dnId1 = dnList.get(0), dnId2 = dnList.get(1);
 
     // Creates {TXNum} TX in the log.
-    Map<Long, List<Long>> deletedBlocks = generateData(txNum);
+    Map<Long, List<DeletedBlock>> deletedBlocks = generateData(txNum);
     addTransactions(deletedBlocks, true);
     List<Long> containerIds = new ArrayList<>(deletedBlocks.keySet());
     for (int i = 0; i < containerIds.size(); i++) {
