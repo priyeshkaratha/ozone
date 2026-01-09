@@ -21,11 +21,16 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.KeyBlocks;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A group of blocks relations relevant, e.g belong to a certain object key.
  */
 public final class BlockGroup {
+
+  private static final Logger LOG =
+      LoggerFactory.getLogger(BlockGroup.class);
 
   private String groupID;
   private List<DeletedBlock> deletedBlocks;
@@ -61,6 +66,10 @@ public final class BlockGroup {
    */
   public static BlockGroup getFromProto(KeyBlocks proto) {
     List<DeletedBlock> deletedBlocksList = new ArrayList<>();
+    if (proto.getBlocksCount() != proto.getSizeCount() || proto.getBlocksCount() != proto.getReplicatedSizeCount()) {
+      LOG.error("Invalid request, key {}, block count {}, block size count {}, block replicated size count {}",
+          proto.getKey(), proto.getBlocksCount(), proto.getSizeCount(), proto.getReplicatedSizeCount());
+    }
     for (int i = 0; i < proto.getBlocksCount(); i++) {
       long repSize = SIZE_NOT_AVAILABLE;
       long size = SIZE_NOT_AVAILABLE;

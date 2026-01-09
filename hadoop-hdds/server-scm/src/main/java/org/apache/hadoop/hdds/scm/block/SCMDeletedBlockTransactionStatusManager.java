@@ -56,6 +56,7 @@ import org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.container.upgrade.VersionedDatanodeFeatures;
 import org.apache.hadoop.ozone.protocol.commands.SCMCommand;
+import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -424,6 +425,7 @@ public class SCMDeletedBlockTransactionStatusManager {
     scmDeleteBlocksCommandStatusManager.clear();
     transactionToDNsCommitMap.clear();
     txSizeMap.clear();
+    LOG.info("txSizeMap is cleared");
   }
 
   public void cleanAllTimeoutSCMCommand(long timeoutMs) {
@@ -455,21 +457,34 @@ public class SCMDeletedBlockTransactionStatusManager {
     if (VersionedDatanodeFeatures.isFinalized(HDDSLayoutFeature.STORAGE_SPACE_DISTRIBUTION) &&
         !disableDataDistributionForTest) {
       for (DeletedBlocksTransaction tx: txList) {
-        if (tx.hasTotalBlockSize()) {
+        if (tx.hasTotalBlockReplicatedSize()) {
           incrDeletedBlocksSummary(tx);
         }
       }
       deletedBlockLogStateManager.addTransactionsToDB(txList, getSummary());
       return;
     }
+    // assert that no tx has block size
+    for (DeletedBlocksTransaction tx: txList) {
+      if (tx.hasTotalBlockReplicatedSize()) {
+        LOG.error("tx {} for container {} with {} blocks should not have block size {} and replicated size {}",
+            tx.getTxID(), tx.getContainerID(), tx.getLocalIDCount(), tx.getTotalBlockSize(),
+            tx.getTotalBlockReplicatedSize());
+      }
+    }
     deletedBlockLogStateManager.addTransactionsToDB(txList);
   }
 
   private void incrDeletedBlocksSummary(DeletedBlocksTransaction tx) {
+    LOG.info("Increase delete blocks summary - Before block count {}, block size {}", totalBlockCount.get(), totalBlocksSize.get());
     totalTxCount.addAndGet(1);
     totalBlockCount.addAndGet(tx.getLocalIDCount());
     totalBlocksSize.addAndGet(tx.getTotalBlockSize());
     totalReplicatedBlocksSize.addAndGet(tx.getTotalBlockReplicatedSize());
+    LOG.info("Increase delete blocks summary - txID {}, container {}, local ID {}, blockCount {}, size {}. " +
+        "Current block count {}, block size {}",
+        tx.getTxID(), tx.getContainerID(), StringUtils.join(',', tx.getLocalIDList()),
+        tx.getLocalIDCount(), tx.getTotalBlockSize(), totalBlockCount.get(), totalBlocksSize.get());
   }
 
   @VisibleForTesting
@@ -482,7 +497,7 @@ public class SCMDeletedBlockTransactionStatusManager {
       for (Long txID: txIDs) {
         TxBlockInfo txBlockInfo = txSizeMap.remove(txID);
         if (txBlockInfo != null) {
-          descDeletedBlocksSummary(txBlockInfo);
+          descDeletedBlocksSummary(txID, txBlockInfo);
         }
       }
       deletedBlockLogStateManager.removeTransactionsFromDB(txIDs, getSummary());
@@ -577,11 +592,15 @@ public class SCMDeletedBlockTransactionStatusManager {
         .build();
   }
 
-  private void descDeletedBlocksSummary(TxBlockInfo txBlockInfo) {
+  private void descDeletedBlocksSummary(Long txID, TxBlockInfo txBlockInfo) {
+    LOG.info("Decrease delete blocks summary - Before block count {}, block size {}", totalBlockCount.get(), totalBlocksSize.get());
     totalTxCount.addAndGet(-1);
     totalBlockCount.addAndGet(-txBlockInfo.getTotalBlockCount());
     totalBlocksSize.addAndGet(-txBlockInfo.getTotalBlockSize());
     totalReplicatedBlocksSize.addAndGet(-txBlockInfo.getTotalReplicatedBlockSize());
+    LOG.info("Decrease delete blocks summary - txID {}, local ID Count {}, size {}. Current block count {}, " +
+        "block size {}",
+        txID, txBlockInfo.getTotalBlockCount(), txBlockInfo.getTotalBlockSize(), totalBlockCount.get(), totalBlocksSize.get());
   }
 
   @VisibleForTesting

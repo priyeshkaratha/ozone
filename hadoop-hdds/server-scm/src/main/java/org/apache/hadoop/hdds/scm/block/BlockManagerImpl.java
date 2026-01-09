@@ -222,10 +222,10 @@ public class BlockManagerImpl implements BlockManager, BlockmanagerMXBean {
     }
     Map<Long, List<DeletedBlock>> containerBlocks = new HashMap<>();
     for (BlockGroup bg : keyBlocksInfoList) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Deleting blocks {}",
+      //if (LOG.isDebugEnabled()) {
+        LOG.info("Deleting blocks {}",
             StringUtils.join(",", bg.getDeletedBlocks()));
-      }
+      //}
       for (DeletedBlock deletedBlock : bg.getDeletedBlocks()) {
         BlockID block = deletedBlock.getBlockID();
         long containerID = block.getContainerID();

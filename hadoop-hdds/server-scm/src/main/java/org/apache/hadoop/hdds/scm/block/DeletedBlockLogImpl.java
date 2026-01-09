@@ -172,7 +172,12 @@ public class DeletedBlockLogImpl
         builder.setTotalBlockSize(blocks.stream().mapToLong(DeletedBlock::getSize).sum());
       }
     }
-    return builder.build();
+    DeletedBlocksTransaction tx = builder.build();
+
+    LOG.info("Construct tx {} for container {} with {} blocks, {} total size, and {} total replicated size", txID,
+        containerID, localIdList.size(), tx.hasTotalBlockSize() ? tx.getTotalBlockSize() : "none",
+        tx.hasTotalBlockReplicatedSize() ? tx.getTotalBlockReplicatedSize() : "none");
+    return tx;
   }
 
   @Override
@@ -440,10 +445,9 @@ public class DeletedBlockLogImpl
         lastProcessedTransactionId = keyValue != null ? keyValue.getKey() : -1;
 
         if (!txIDs.isEmpty()) {
-          deletedBlockLogStateManager.removeTransactionsFromDB(txIDs);
+          transactionStatusManager.removeTransactions(txIDs);
           getSCMDeletedBlockTransactionStatusManager().removeTransactionFromDNsCommitMap(txIDs);
           getSCMDeletedBlockTransactionStatusManager().removeTransactionFromDNsRetryCountMap(txIDs);
-          transactionStatusManager.removeTransactions(txIDs);
           metrics.incrBlockDeletionTransactionCompleted(txIDs.size());
         }
       }
