@@ -476,7 +476,8 @@ public class SCMDeletedBlockTransactionStatusManager {
   }
 
   private void incrDeletedBlocksSummary(DeletedBlocksTransaction tx) {
-    LOG.info("Increase delete blocks summary - Before block count {}, block size {}", totalBlockCount.get(), totalBlocksSize.get());
+    LOG.info("Increase delete blocks summary - Before block count {}, block size {}",
+        totalBlockCount.get(), totalBlocksSize.get());
     totalTxCount.addAndGet(1);
     totalBlockCount.addAndGet(tx.getLocalIDCount());
     totalBlocksSize.addAndGet(tx.getTotalBlockSize());
@@ -593,14 +594,16 @@ public class SCMDeletedBlockTransactionStatusManager {
   }
 
   private void descDeletedBlocksSummary(Long txID, TxBlockInfo txBlockInfo) {
-    LOG.info("Decrease delete blocks summary - Before block count {}, block size {}", totalBlockCount.get(), totalBlocksSize.get());
+    LOG.info("Decrease delete blocks summary - Before block count {}, block size {}",
+        totalBlockCount.get(), totalBlocksSize.get());
     totalTxCount.addAndGet(-1);
     totalBlockCount.addAndGet(-txBlockInfo.getTotalBlockCount());
     totalBlocksSize.addAndGet(-txBlockInfo.getTotalBlockSize());
     totalReplicatedBlocksSize.addAndGet(-txBlockInfo.getTotalReplicatedBlockSize());
     LOG.info("Decrease delete blocks summary - txID {}, local ID Count {}, size {}. Current block count {}, " +
         "block size {}",
-        txID, txBlockInfo.getTotalBlockCount(), txBlockInfo.getTotalBlockSize(), totalBlockCount.get(), totalBlocksSize.get());
+        txID, txBlockInfo.getTotalBlockCount(), txBlockInfo.getTotalBlockSize(),
+        totalBlockCount.get(), totalBlocksSize.get());
   }
 
   @VisibleForTesting
