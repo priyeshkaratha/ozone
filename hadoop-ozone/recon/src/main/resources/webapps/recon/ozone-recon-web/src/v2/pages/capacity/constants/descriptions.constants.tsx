@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-export const totalCapacityDesc = 'The space configured for Ozone to use in the cluster. The actual disk space may be larger than what is allocated to Ozone.';
 
 export const otherUsedSpaceDesc = 'This is the space occupied by other Ozone related files but not actual data stored by Ozone. This may include things like logs, configuration files, Rocks DB files etc.';
 
