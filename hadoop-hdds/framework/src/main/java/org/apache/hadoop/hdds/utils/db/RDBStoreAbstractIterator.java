@@ -89,7 +89,17 @@ abstract class RDBStoreAbstractIterator<RAW>
     }
   }
 
+  private boolean isDbClosed() {
+    return rocksDBTable != null && rocksDBTable.isClosed();
+  }
+
   private void setCurrentEntry() {
+    if (isDbClosed()) {
+      LOG.warn("Stopping iterator for table {}: underlying RocksDB is closed",
+          rocksDBTable.getName());
+      currentEntry = null;
+      return;
+    }
     if (rocksDBIterator.get().isValid()) {
       currentEntry = getKeyValue();
     } else {
@@ -99,6 +109,9 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public final boolean hasNext() {
+    if (isDbClosed()) {
+      return false;
+    }
     return rocksDBIterator.get().isValid() &&
         (prefix == null || startsWithPrefix(key()));
   }
