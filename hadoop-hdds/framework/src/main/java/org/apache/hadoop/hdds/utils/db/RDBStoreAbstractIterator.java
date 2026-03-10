@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdds.utils.db;
 
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator;
 import org.slf4j.Logger;
@@ -37,11 +38,9 @@ abstract class RDBStoreAbstractIterator<RAW>
   private final ManagedRocksIterator rocksDBIterator;
   private final RDBTable rocksDBTable;
   private Table.KeyValue<RAW, RAW> currentEntry;
-  // This is for schemas that use a fixed-length
-  // prefix for each key.
   private final RAW prefix;
-
   private final IteratorType type;
+  private final AtomicBoolean iteratorClosed = new AtomicBoolean(false);
 
   RDBStoreAbstractIterator(ManagedRocksIterator iterator, RDBTable table, RAW prefix, IteratorType type) {
     this.rocksDBIterator = iterator;
@@ -89,7 +88,17 @@ abstract class RDBStoreAbstractIterator<RAW>
     }
   }
 
+  private boolean isDbClosed() {
+    return rocksDBTable != null && rocksDBTable.isClosed();
+  }
+
   private void setCurrentEntry() {
+    if (isDbClosed()) {
+      LOG.warn("Stopping iterator for table {}: underlying RocksDB is closed",
+          rocksDBTable.getName());
+      currentEntry = null;
+      return;
+    }
     if (rocksDBIterator.get().isValid()) {
       currentEntry = getKeyValue();
     } else {
@@ -99,6 +108,9 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public final boolean hasNext() {
+    if (isDbClosed()) {
+      return false;
+    }
     return rocksDBIterator.get().isValid() &&
         (prefix == null || startsWithPrefix(key()));
   }
@@ -107,7 +119,9 @@ abstract class RDBStoreAbstractIterator<RAW>
   public final Table.KeyValue<RAW, RAW> next() {
     setCurrentEntry();
     if (currentEntry != null) {
-      rocksDBIterator.get().next();
+      if (!isDbClosed()) {
+        rocksDBIterator.get().next();
+      }
       return currentEntry;
     }
     throw new NoSuchElementException("RocksDB Store has no more elements");
@@ -115,6 +129,10 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public final void seekToFirst() {
+    if (isDbClosed()) {
+      currentEntry = null;
+      return;
+    }
     if (prefix == null) {
       rocksDBIterator.get().seekToFirst();
     } else {
@@ -125,6 +143,10 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public final void seekToLast() {
+    if (isDbClosed()) {
+      currentEntry = null;
+      return;
+    }
     if (prefix == null) {
       rocksDBIterator.get().seekToLast();
     } else {
@@ -135,6 +157,10 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public final Table.KeyValue<RAW, RAW> seek(RAW key) {
+    if (isDbClosed()) {
+      currentEntry = null;
+      return null;
+    }
     seek0(key);
     setCurrentEntry();
     return currentEntry;
@@ -145,6 +171,12 @@ abstract class RDBStoreAbstractIterator<RAW>
     if (rocksDBTable == null) {
       throw new UnsupportedOperationException("remove");
     }
+    if (isDbClosed()) {
+      LOG.warn("Skipping removeFromDB for table {}: underlying RocksDB is closed",
+          rocksDBTable.getName());
+      throw new RocksDatabaseException("Cannot removeFromDB: underlying RocksDB for table "
+          + rocksDBTable.getName() + "is closed");
+    }
     if (currentEntry != null) {
       delete(currentEntry.getKey());
     } else {
@@ -154,6 +186,8 @@ abstract class RDBStoreAbstractIterator<RAW>
 
   @Override
   public void close() {
-    rocksDBIterator.close();
+    if (iteratorClosed.compareAndSet(false, true)) {
+      rocksDBIterator.close();
+    }
   }
 }
