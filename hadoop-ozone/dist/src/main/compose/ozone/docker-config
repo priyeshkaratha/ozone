@@ -67,3 +67,13 @@ no_proxy=om,scm,s3g,recon,kdc,localhost,127.0.0.1
 
 # Explicitly enable filesystem snapshot feature for this Docker compose cluster
 OZONE-SITE.XML_ozone.filesystem.snapshot.enabled=true
+
+# Recon Chatbot — DISABLED by default.
+# Uncomment the lines below to enable for local testing only.
+#
+# WARNING: NEVER commit a real API key to git. The api.key line below uses a
+# placeholder. Set the real value locally (export it in your shell or write
+# it to a private docker-config override) and DO NOT push your edited file.
+# OZONE-SITE.XML_ozone.recon.chatbot.enabled=true
+# OZONE-SITE.XML_ozone.recon.chatbot.provider=gemini
+# OZONE-SITE.XML_ozone.recon.chatbot.gemini.api.key=YOUR_API_KEY_HERE
