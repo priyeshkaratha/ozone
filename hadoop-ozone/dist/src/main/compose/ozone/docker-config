@@ -70,3 +70,17 @@ OZONE-SITE.XML_ozone.filesystem.snapshot.enabled=true
 
 # Periodic snapshot defrag for smoketest snapshot/snapshot-defrag.robot (HDDS-15181)
 OZONE-SITE.XML_ozone.snapshot.defrag.service.interval=30s
+# Enable Recon Chatbot for testing
+OZONE-SITE.XML_ozone.recon.chatbot.enabled=true
+OZONE-SITE.XML_ozone.recon.chatbot.provider=gemini
+OZONE-SITE.XML_ozone.recon.chatbot.gemini.api.key=YOUR_API_KEY_HERE
+# Recon Chatbot — DISABLED by default.
+# To enable locally for testing, uncomment the lines below and set a real API key.
+#
+# WARNING: Never commit a real API key to git. Set the key value only in your local
+# copy of this file (or export it in your shell before running docker compose).
+# If you accidentally add a real key, rotate it immediately at your provider's console.
+#
+# OZONE-SITE.XML_ozone.recon.chatbot.enabled=true
+# OZONE-SITE.XML_ozone.recon.chatbot.provider=gemini
+# OZONE-SITE.XML_ozone.recon.chatbot.gemini.api.key=YOUR_GEMINI_API_KEY_HERE
