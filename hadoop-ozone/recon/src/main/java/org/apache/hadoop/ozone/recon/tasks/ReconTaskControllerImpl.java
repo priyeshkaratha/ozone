@@ -209,13 +209,26 @@ public class ReconTaskControllerImpl implements ReconTaskController {
       return false;
     }
 
-    localReconOmTaskMap.values().forEach(task -> {
+    Map<String, ReconOmTask> stagedTaskMap = new HashMap<>();
+    for (ReconOmTask task : localReconOmTaskMap.values()) {
       ReconTaskStatusUpdater taskStatusUpdater = taskStatusUpdaterManager.getTaskStatusUpdater(task.getTaskName());
       taskStatusUpdater.recordRunStart();
-      tasks.add(new NamedCallableTask<>(task.getTaskName(),
-          () -> task.getStagedTask(omMetadataManager, stagedReconDBProvider.getDbStore())
-              .reprocess(omMetadataManager)));
-    });
+      try {
+        ReconOmTask stagedTask = task.getStagedTask(omMetadataManager, stagedReconDBProvider.getDbStore());
+        stagedTaskMap.put(task.getTaskName(), stagedTask);
+        tasks.add(new NamedCallableTask<>(task.getTaskName(), () -> stagedTask.reprocess(omMetadataManager)));
+      } catch (IOException e) {
+        LOG.error("Failed to create staged task for {}.", task.getTaskName(), e);
+        controllerMetrics.incrReprocessCheckpointFailures();
+        recordAllTaskStatus(localReconOmTaskMap, -1, -1);
+        try {
+          stagedReconDBProvider.close();
+        } catch (Exception closeEx) {
+          LOG.error("Failed to close staged Recon DB provider after staged task creation failure.", closeEx);
+        }
+        return false;
+      }
+    }
 
     AtomicBoolean isRunSuccessful = new AtomicBoolean(true);
     LOG.info("Submitting {} tasks for parallel reprocessing", tasks.size());
@@ -284,8 +297,8 @@ public class ReconTaskControllerImpl implements ReconTaskController {
         reconContainerMetadataManager.reinitialize(reconDBProvider);
         reconGlobalStatsManager.reinitialize(reconDBProvider);
         reconFileMetadataManager.reinitialize(reconDBProvider);
+        reconOmTasks.putAll(stagedTaskMap);
         recordAllTaskStatus(localReconOmTaskMap, 0, omMetadataManager.getLastSequenceNumberFromDB());
-
         // Track reprocess success
         controllerMetrics.incrReprocessSuccessCount();
 
