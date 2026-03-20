@@ -120,7 +120,6 @@ public abstract class AbstractRDBStore<DEF extends DBDefinition> implements DBSt
   public synchronized void stop() {
     if (this.store != null) {
       this.store.close();
-      this.store = null;
     }
   }
 
