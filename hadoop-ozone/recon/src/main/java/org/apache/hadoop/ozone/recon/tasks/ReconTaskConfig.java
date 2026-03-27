@@ -67,6 +67,16 @@ public class ReconTaskConfig {
   )
   private Duration containerSizeCountTaskInterval = Duration.ofMinutes(1);
 
+  @Config(key = "ozone.recon.task.deletedblockssync.interval",
+      type = ConfigType.TIME,
+      defaultValue = "300s",
+      tags = { ConfigTag.RECON, ConfigTag.OZONE },
+      description = "The time interval between runs of the DeletedBlocksSyncTask, " +
+          "which checks for discrepancies between SCM's checkpoint-actual and " +
+          "checkpoint-persisted deleted-blocks counters and auto-repairs them."
+  )
+  private Duration deletedBlocksSyncTaskInterval = Duration.ofMinutes(5);
+
   public Duration getPipelineSyncTaskInterval() {
     return pipelineSyncTaskInterval;
   }
@@ -97,6 +107,14 @@ public class ReconTaskConfig {
 
   public void setContainerSizeCountTaskInterval(Duration interval) {
     this.containerSizeCountTaskInterval = interval;
+  }
+
+  public Duration getDeletedBlocksSyncTaskInterval() {
+    return deletedBlocksSyncTaskInterval;
+  }
+
+  public void setDeletedBlocksSyncTaskInterval(Duration interval) {
+    this.deletedBlocksSyncTaskInterval = interval;
   }
 
 }

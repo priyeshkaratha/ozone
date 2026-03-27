@@ -92,6 +92,7 @@ import org.apache.hadoop.hdds.scm.node.StaleNodeHandler;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineActionHandler;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
+import org.apache.hadoop.hdds.scm.protocol.StorageContainerLocationProtocol;
 import org.apache.hadoop.hdds.scm.safemode.SCMSafeModeManager;
 import org.apache.hadoop.hdds.scm.server.OzoneStorageContainerManager;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.ContainerReport;
@@ -118,6 +119,7 @@ import org.apache.hadoop.ozone.recon.persistence.ContainerHealthSchemaManager;
 import org.apache.hadoop.ozone.recon.spi.ReconContainerMetadataManager;
 import org.apache.hadoop.ozone.recon.spi.StorageContainerServiceProvider;
 import org.apache.hadoop.ozone.recon.tasks.ContainerSizeCountTask;
+import org.apache.hadoop.ozone.recon.tasks.DeletedBlocksSyncTask;
 import org.apache.hadoop.ozone.recon.tasks.ReconTaskConfig;
 import org.apache.hadoop.ozone.recon.tasks.updater.ReconTaskStatusUpdaterManager;
 import org.apache.ozone.recon.schema.UtilizationSchemaDefinition;
@@ -174,6 +176,7 @@ public class ReconStorageContainerManagerFacade
   @SuppressWarnings({"checkstyle:ParameterNumber", "checkstyle:MethodLength"})
   public ReconStorageContainerManagerFacade(OzoneConfiguration conf,
                                             StorageContainerServiceProvider scmServiceProvider,
+                                            StorageContainerLocationProtocol scmLocationProtocol,
                                             ContainerCountBySizeDao containerCountBySizeDao,
                                             UtilizationSchemaDefinition utilizationSchemaDefinition,
                                             ReconContainerMetadataManager reconContainerMetadataManager,
@@ -374,9 +377,13 @@ public class ReconStorageContainerManagerFacade
     eventQueue.addHandler(SCMEvents.CONTAINER_ACTIONS, actionsHandler);
     eventQueue.addHandler(SCMEvents.CLOSE_CONTAINER, closeContainerHandler);
     eventQueue.addHandler(SCMEvents.NEW_NODE, newNodeHandler);
+    DeletedBlocksSyncTask deletedBlocksSyncTask = new DeletedBlocksSyncTask(
+        scmLocationProtocol, reconTaskConfig, taskStatusUpdaterManager);
+
     reconScmTasks.add(pipelineSyncTask);
     reconScmTasks.add(containerHealthTask);
     reconScmTasks.add(containerSizeCountTask);
+    reconScmTasks.add(deletedBlocksSyncTask);
     reconSafeModeMgrTask = new ReconSafeModeMgrTask(
         containerManager, nodeManager, safeModeManager,
         reconTaskConfig, ozoneConfiguration);
