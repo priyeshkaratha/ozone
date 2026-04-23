@@ -256,6 +256,35 @@ public class MiniOzoneHAClusterImpl extends MiniOzoneClusterImpl {
     for (OzoneManager ozoneManager : omhaService.getServices()) {
       ozoneManager.restart();
     }
+    try {
+      waitForOMsToSync();
+    } catch (TimeoutException | InterruptedException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      LOG.warn("Timed out waiting for all OMs to sync after restart", e);
+    }
+  }
+
+  /**
+   * Waits for all active OMs to catch up with the leader's applied index.
+   * This ensures no OM is mid-snapshot-installation before tests proceed.
+   */
+  public void waitForOMsToSync() throws TimeoutException, InterruptedException {
+    OzoneManager leader = waitForLeaderOM();
+    long leaderIndex =
+        leader.getOmRatisServer().getLastAppliedTermIndex().getIndex();
+    String leaderNodeId = leader.getOMNodeId();
+    for (OzoneManager om : omhaService.getActiveServices()) {
+      if (om.getOMNodeId().equals(leaderNodeId)) {
+        continue;
+      }
+      GenericTestUtils.waitFor(() -> {
+        OzoneManagerRatisServer ratisServer = om.getOmRatisServer();
+        return ratisServer != null &&
+            ratisServer.getLastAppliedTermIndex().getIndex() >= leaderIndex;
+      }, 1000, waitForClusterToBeReadyTimeout);
+    }
   }
 
   public void shutdownOzoneManager(OzoneManager ozoneManager) {

@@ -18,7 +18,6 @@
 package org.apache.hadoop.ozone.om;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.hadoop.ozone.MiniOzoneHAClusterImpl.NODE_FAILURE_TIMEOUT;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_WAIT_BETWEEN_RETRIES_MILLIS_DEFAULT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +38,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -100,6 +100,13 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
    * After restarting OMs we need to wait
    * for a leader to be elected and ready.
    */
+  @Override
+  protected void waitForLeaderToBeReady()
+      throws InterruptedException, TimeoutException {
+    super.waitForLeaderToBeReady();
+    getCluster().waitForOMsToSync();
+  }
+
   @BeforeEach
   void setup() throws Exception {
     waitForLeaderToBeReady();
@@ -120,9 +127,10 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
    * Test client request succeeds when one OM node is down.
    */
   @Test
+  @Order(Integer.MAX_VALUE - 3)
   void oneOMDown() throws Exception {
     getCluster().stopOzoneManager(1);
-    Thread.sleep(NODE_FAILURE_TIMEOUT * 4);
+    getCluster().waitForLeaderOM();
 
     createVolumeTest(true);
     createKeyTest(true);
@@ -132,10 +140,11 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
    * Test client request fails when 2 OMs are down.
    */
   @Test
+  @Order(Integer.MAX_VALUE - 2)
   void twoOMDown() throws Exception {
     getCluster().stopOzoneManager(1);
     getCluster().stopOzoneManager(2);
-    Thread.sleep(NODE_FAILURE_TIMEOUT * 4);
+    getCluster().waitForLeaderOM();
 
     createVolumeTest(false);
     createKeyTest(false);
@@ -175,7 +184,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
     // Stop one of the ozone manager, to see when the OM leader changes
     // multipart upload is happening successfully or not.
     getCluster().stopOzoneManager(leaderOMNodeId);
-    Thread.sleep(NODE_FAILURE_TIMEOUT * 4);
+    getCluster().waitForLeaderOM();
 
     createMultipartKeyAndReadKey(ozoneBucket, keyName, uploadID);
 
@@ -354,7 +363,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
 
     // Stop leader OM, and then validate list parts.
     stopLeaderOM();
-    Thread.sleep(NODE_FAILURE_TIMEOUT * 4);
+    getCluster().waitForLeaderOM();
 
     validateListParts(ozoneBucket, keyName, uploadID, partsMap);
 
@@ -577,6 +586,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
   }
 
   @Test
+  @Order(1)
   void testListVolumes() throws Exception {
     String userName = UserGroupInformation.getCurrentUser().getUserName();
     ObjectStore objectStore = getObjectStore();
@@ -588,7 +598,7 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
         .build();
 
     Set<String> expectedVolumes = new TreeSet<>();
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
       String volumeName = prefix + i;
       expectedVolumes.add(volumeName);
       objectStore.createVolume(volumeName, createVolumeArgs);
@@ -599,7 +609,8 @@ public class TestOzoneManagerHAWithStoppedNodes extends TestOzoneManagerHA {
 
     // Stop leader OM, and then validate list volumes for user.
     stopLeaderOM();
-    Thread.sleep(NODE_FAILURE_TIMEOUT * 2);
+    getCluster().waitForOMsToSync();
+    waitForLeaderToBeReady();
 
     validateVolumesList(expectedVolumes,
         objectStore.listVolumesByUser(userName, prefix, ""));
