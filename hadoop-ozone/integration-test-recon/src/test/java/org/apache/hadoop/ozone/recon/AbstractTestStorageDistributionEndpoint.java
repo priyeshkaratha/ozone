@@ -57,6 +57,7 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.container.common.helpers.BlockDeletingServiceMetrics;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -150,7 +151,7 @@ public abstract class AbstractTestStorageDistributionEndpoint {
     conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 50, TimeUnit.MILLISECONDS);
     conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200, TimeUnit.MILLISECONDS);
     conf.setTimeDuration(OZONE_SCM_HA_DBTRANSACTIONBUFFER_FLUSH_INTERVAL, 500, TimeUnit.MILLISECONDS);
-    conf.set(ReconServerConfigKeys.OZONE_RECON_DN_METRICS_COLLECTION_MINIMUM_API_DELAY, "5s");
+    conf.set(ReconServerConfigKeys.OZONE_RECON_DN_METRICS_COLLECTION_MINIMUM_API_DELAY, "3s");
 
     ScmConfig scmConfig = conf.getObject(ScmConfig.class);
     scmConfig.setBlockDeletionInterval(Duration.ofMillis(100));
@@ -158,7 +159,7 @@ public abstract class AbstractTestStorageDistributionEndpoint {
     conf.set(HDDS_SCM_WAIT_TIME_AFTER_SAFE_MODE_EXIT, "0s");
 
     DatanodeConfiguration dnConf = conf.getObject(DatanodeConfiguration.class);
-    dnConf.setBlockDeletionInterval(Duration.ofMillis(30000));
+    dnConf.setBlockDeletionInterval(Duration.ofMillis(10000));
     conf.setFromObject(dnConf);
 
     recon = new ReconService(conf);
@@ -214,6 +215,7 @@ public abstract class AbstractTestStorageDistributionEndpoint {
 
   protected boolean verifyStorageDistributionAfterKeyCreation() {
     try {
+      syncDataFromOM();
       StringBuilder urlBuilder = new StringBuilder();
       urlBuilder.append(getReconWebAddress(conf)).append(STORAGE_DIST_ENDPOINT);
       String response = TestReconEndpointUtil.makeHttpCall(conf, urlBuilder);
@@ -384,6 +386,16 @@ public abstract class AbstractTestStorageDistributionEndpoint {
     }
   }
 
+  protected void startDataNodeDeletionService() {
+    getCluster().getHddsDatanodes().forEach(dn ->
+        dn.getDatanodeStateMachine().getContainer().getBlockDeletingService().start());
+  }
+
+  protected void stopDataNodeDeletionService() {
+    getCluster().getHddsDatanodes().forEach(dn ->
+        dn.getDatanodeStateMachine().getContainer().getBlockDeletingService().shutdown());
+  }
+
   @AfterEach
   public void cleanup() {
     assertDoesNotThrow(() -> {
@@ -403,5 +415,6 @@ public abstract class AbstractTestStorageDistributionEndpoint {
     if (cluster != null) {
       cluster.shutdown();
     }
+    BlockDeletingServiceMetrics.unRegister();
   }
 }

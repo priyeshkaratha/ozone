@@ -79,15 +79,17 @@ public class TestStorageDistributionEndpointEC extends AbstractTestStorageDistri
       }
     }
 
-    GenericTestUtils.waitFor(this::verifyStorageDistributionAfterKeyCreation, 1000, 60000);
+    GenericTestUtils.waitFor(this::verifyStorageDistributionAfterKeyCreation, 1000, 30000);
     closeAllContainers();
+    stopDataNodeDeletionService();
     getFs().delete(dir1, true);
     GenericTestUtils.waitFor(this::verifyPendingDeletionAfterKeyDeletionOm, 1000, 30000);
     GenericTestUtils.waitFor(this::verifyPendingDeletionAfterKeyDeletionScm, 2000, 30000);
+    startDataNodeDeletionService();
+    GenericTestUtils.waitFor(this::verifyPendingDeletionAfterKeyDeletionDn, 2000, 60000);
     GenericTestUtils.waitFor(() -> Objects.requireNonNull(
             getScm().getClientProtocolServer().getDeletedBlockSummary()).getTotalBlockCount() == 0,
         1000, 30000);
-    GenericTestUtils.waitFor(this::verifyPendingDeletionAfterKeyDeletionDn, 2000, 60000);
     GenericTestUtils.waitFor(this::verifyPendingDeletionClearsAtDn, 2000, 60000);
   }
 }
