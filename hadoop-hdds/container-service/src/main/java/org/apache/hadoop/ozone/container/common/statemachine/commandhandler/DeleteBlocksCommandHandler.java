@@ -547,7 +547,6 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
       KeyValueContainerData containerData, DeletedBlocksTransaction delTX,
       long txnID, DeletionMarker marker)
       throws IOException {
-    int newDeletionBlocks = 0;
     long containerId = delTX.getContainerID();
     if (isDuplicateTransaction(containerId, containerData, delTX, blockDeleteMetrics)) {
       return;
@@ -559,14 +558,49 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
           store.getDeleteTransactionTable();
       try (BatchOperation batch = containerDB.getStore().getBatchHandler()
           .initBatchOperation()) {
+        // For out-of-order replays (txID < deleteTransactionId), isDuplicateTransaction
+        // returns false because it only guards against the exact-equal case. The transaction
+        // may, however, already be present in the delete-transaction table from a prior
+        // command. If so, the PUT below is idempotent but we must NOT increment the
+        // pending-deletion counters a second time — that is the root cause of the
+        // inflated pendingDeletionBytes reported by the DN.
+        int newDeletionBlocks = isAlreadyInDeleteTxnTable(containerData, delTxTable, txnID)
+            ? 0 : delTX.getLocalIDList().size();
         marker.apply(delTxTable, batch, txnID, delTX);
-        newDeletionBlocks += delTX.getLocalIDList().size();
         updateMetaData(containerData, delTX, newDeletionBlocks, containerDB,
             batch);
         containerDB.getStore().getBatchHandler().commitBatchOperation(batch);
       }
     }
     blockDeleteMetrics.incrMarkedBlockCount(delTX.getLocalIDCount());
+  }
+
+  /**
+   * Returns {@code true} if the given transaction ID is already present in the
+   * delete-transaction table (SchemaV2 or SchemaV3).
+   *
+   * <p>This check prevents double-counting of {@code pendingDeletionBytes} when an
+   * out-of-order transaction replay arrives ({@code txID < deleteTransactionId}) but
+   * the transaction was already written to the DB by a prior command. Schema V1 is
+   * handled at the per-block level and does not require this check.
+   */
+  private boolean isAlreadyInDeleteTxnTable(
+      KeyValueContainerData containerData,
+      Table<?, DeletedBlocksTransaction> delTxTable,
+      long txnID) throws IOException {
+    if (containerData.hasSchema(SCHEMA_V3)) {
+      @SuppressWarnings("unchecked")
+      Table<String, DeletedBlocksTransaction> v3Table =
+          (Table<String, DeletedBlocksTransaction>) delTxTable;
+      return v3Table.get(containerData.getDeleteTxnKey(txnID)) != null;
+    }
+    if (containerData.hasSchema(SCHEMA_V2)) {
+      @SuppressWarnings("unchecked")
+      Table<Long, DeletedBlocksTransaction> v2Table =
+          (Table<Long, DeletedBlocksTransaction>) delTxTable;
+      return v2Table.get(txnID) != null;
+    }
+    return false;
   }
 
   private void markBlocksForDeletionSchemaV1(
