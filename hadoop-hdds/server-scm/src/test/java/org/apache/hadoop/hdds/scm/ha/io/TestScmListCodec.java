@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol;
@@ -62,7 +61,7 @@ public class TestScmListCodec {
     ScmListCodec codec = new ScmListCodec(
         new ScmCodecFactory.ClassResolver(Collections.emptyList()));
 
-    List<?> result = (List<?>) codec.deserialize(codec.serialize(new ArrayList<>()));
+    List<?> result = (List<?>) codec.deserialize(codec.serialize(Collections.emptyList()));
 
     assertEquals(0, result.size());
   }
