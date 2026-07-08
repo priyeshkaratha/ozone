@@ -17,10 +17,13 @@
 
 package org.apache.hadoop.hdds.scm.ha.io;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -48,5 +51,39 @@ public class TestScmListCodec {
         () -> codec.deserialize(listArg.toByteString()));
 
     assertTrue(ex.getMessage().contains("Missing ListArgument.type"));
+  }
+
+  /**
+   * An empty list serialized with the Object.class sentinel must round-trip
+   * cleanly without triggering "Failed to resolve java.lang.Object".
+   */
+  @Test
+  public void testEmptyListRoundTrip() throws Exception {
+    ScmListCodec codec = new ScmListCodec(
+        new ScmCodecFactory.ClassResolver(Collections.emptyList()));
+
+    List<?> result = (List<?>) codec.deserialize(codec.serialize(new ArrayList<>()));
+
+    assertEquals(0, result.size());
+  }
+
+  /**
+   * The EMPTY_LIST sentinel (type=java.lang.Object, no values) stored in an
+   * existing Ratis log must deserialize successfully.
+   */
+  @Test
+  public void testEmptyListSentinelDeserialization() throws Exception {
+    SCMRatisProtocol.ListArgument sentinel =
+        SCMRatisProtocol.ListArgument.newBuilder()
+            .setType(Object.class.getName())
+            // no values
+            .build();
+
+    ScmListCodec codec = new ScmListCodec(
+        new ScmCodecFactory.ClassResolver(Collections.emptyList()));
+
+    List<?> result = (List<?>) codec.deserialize(sentinel.toByteString());
+
+    assertEquals(0, result.size());
   }
 }
