@@ -203,23 +203,17 @@ const Capacity: React.FC<object> = () => {
   };
 
   // Adjust the polling interval based on DN scan status:
-  // fast (5s) while a scan is running (regardless of auto-reload toggle, since
-  // the scan is async and must be tracked to completion), normal (60s) once
-  // finished — but only if the user has auto-reload enabled.
+  // fast (5s) while a scan is running, normal (60s) once finished.
+  // Honors the auto-reload toggle: if polling is OFF, do nothing.
   React.useEffect(() => {
-    if (dnPendingDeletes.data.status !== "FINISHED") {
-      autoReload.startPolling(PENDING_POLL_INTERVAL);
-    } else if (autoReload.isPolling) {
-      // Scan just finished while fast-polling was active.
-      // Switch to normal interval only if the user still wants auto-reload;
-      // otherwise stop so we don't override the toggle.
-      const autoReloadEnabled = sessionStorage.getItem('autoReloadEnabled') !== 'false';
-      if (autoReloadEnabled) {
-        autoReload.startPolling(AUTO_RELOAD_INTERVAL_DEFAULT);
-      } else {
-        autoReload.stopPolling();
-      }
+    if (!autoReload.isPolling) {
+      return;
     }
+    autoReload.startPolling(
+      dnPendingDeletes.data.status === "FINISHED"
+        ? AUTO_RELOAD_INTERVAL_DEFAULT
+        : PENDING_POLL_INTERVAL
+    );
   }, [dnPendingDeletes.data.status, autoReload.isPolling]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dnReportStatus = (

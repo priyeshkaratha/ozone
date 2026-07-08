@@ -63,7 +63,7 @@ export const StorageDistribution = {
 
 export const ScmPendingDeletion = {
   totalBlocksize: 1024,
-  totalReplicatedBlockSize: 3072,
+  totalReplicatedBlockSize: 2048,
   totalBlocksCount: 2
 };
 
