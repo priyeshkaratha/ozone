@@ -103,11 +103,11 @@ const Capacity: React.FC<object> = () => {
 
   // Seed selected datanode once data loads so dependent calculations work
   React.useEffect(() => {
-    const firstHost = filteredDNs[0]?.hostName;
-    if (!selectedDatanode && firstHost) {
-      setSelectedDatanode(firstHost);
+    const hostNames = filteredDNs.map(dn => dn.hostName);
+    if (!hostNames.includes(selectedDatanode)) {
+      setSelectedDatanode(hostNames[0] ?? "");
     }
-  }, [selectedDatanode, filteredDNs]);
+  }, [filteredDNs]);
 
   const loadData = () => {
     storageDistribution.refetch();
