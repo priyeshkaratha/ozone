@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdds.scm.ha.io;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol.ListArgument;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -73,7 +72,7 @@ class ScmListCodec implements ScmCodec<Object> {
     // Empty list was serialized with type=Object.class.getName() as a sentinel.
     // Skip element-type resolution — there are no elements to decode.
     if (argument.getValueCount() == 0) {
-      return Collections.emptyList();
+      return new ArrayList<>();
     }
 
     final Class<?> elementClass = resolver.get(argument.getType());

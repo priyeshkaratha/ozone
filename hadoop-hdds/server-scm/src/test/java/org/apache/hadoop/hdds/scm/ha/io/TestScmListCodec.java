@@ -18,9 +18,11 @@
 package org.apache.hadoop.hdds.scm.ha.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.hadoop.hdds.protocol.proto.SCMRatisProtocol;
@@ -61,7 +63,7 @@ public class TestScmListCodec {
     ScmListCodec codec = new ScmListCodec(
         new ScmCodecFactory.ClassResolver(Collections.emptyList()));
 
-    List<?> result = (List<?>) codec.deserialize(codec.serialize(Collections.emptyList()));
+    List<?> result = (List<?>) codec.deserialize(codec.serialize(new ArrayList<>()));
 
     assertEquals(0, result.size());
   }
@@ -84,5 +86,36 @@ public class TestScmListCodec {
     List<?> result = (List<?>) codec.deserialize(sentinel.toByteString());
 
     assertEquals(0, result.size());
+  }
+
+  /**
+   * Deserialized empty lists must be concrete {@link ArrayList} instances.
+   * Generated invokers (e.g. DeletedBlockLogStateManagerInvoker) cast the
+   * decoded argument directly to {@code ArrayList}; returning an unmodifiable
+   * or fixed-size list would cause a ClassCastException during Ratis log
+   * replay even though the list is logically empty.
+   */
+  @Test
+  public void testEmptyListDeserializedAsArrayList() throws Exception {
+    ScmListCodec codec = new ScmListCodec(
+        new ScmCodecFactory.ClassResolver(Collections.emptyList()));
+
+    // Round-trip path: serialize an empty list then deserialize it.
+    Object roundTrip = codec.deserialize(codec.serialize(new ArrayList<>()));
+    assertInstanceOf(ArrayList.class, roundTrip,
+        "round-trip empty list must be an ArrayList, not " + roundTrip.getClass());
+
+    // Sentinel path: the exact bytes that older logs contain.
+    SCMRatisProtocol.ListArgument sentinel =
+        SCMRatisProtocol.ListArgument.newBuilder()
+            .setType(Object.class.getName())
+            .build();
+    Object fromSentinel = codec.deserialize(sentinel.toByteString());
+    assertInstanceOf(ArrayList.class, fromSentinel,
+        "sentinel empty list must be an ArrayList, not " + fromSentinel.getClass());
+
+    // Verify the cast that invokers actually perform does not throw.
+    ArrayList<?> cast = (ArrayList<?>) roundTrip;
+    assertEquals(0, cast.size());
   }
 }
