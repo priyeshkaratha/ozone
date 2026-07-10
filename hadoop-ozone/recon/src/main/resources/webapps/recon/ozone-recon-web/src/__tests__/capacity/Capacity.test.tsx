@@ -307,4 +307,57 @@ describe('Capacity Page', () => {
     );
     expect(screen.queryByRole('option', { name: 'dn-17' })).not.toBeInTheDocument();
   });
+
+  test('keeps polling the DN scan to completion even when Auto Refresh is off', async () => {
+    // Auto Refresh disabled before mount, so useAutoReload never starts its timer.
+    sessionStorage.setItem('autoReloadEnabled', 'false');
+
+    let dnCallCount = 0;
+    // Report an in-progress scan on the first two reads, then FINISHED.
+    const dnStatuses = ['IN_PROGRESS', 'IN_PROGRESS', 'FINISHED'];
+    capacityServer.use(
+      rest.get('api/v1/pendingDeletion', (req, res, ctx) => {
+        const component = req.url.searchParams.get('component');
+        if (component === 'dn') {
+          const status = dnStatuses[Math.min(dnCallCount, dnStatuses.length - 1)];
+          dnCallCount++;
+          return res(
+            ctx.status(200),
+            ctx.json({ ...mockResponses.DnPendingDeletion, status })
+          );
+        }
+        const map: Record<string, object> = {
+          scm: mockResponses.ScmPendingDeletion,
+          om: mockResponses.OmPendingDeletion
+        };
+        const body = component ? map[component] : undefined;
+        return body
+          ? res(ctx.status(200), ctx.json(body))
+          : res(ctx.status(400), ctx.json({ message: 'Unsupported pending deletion component.' }));
+      })
+    );
+
+    vi.useFakeTimers();
+    try {
+      render(<Capacity />);
+
+      // Flush the initial mount fetch (dn read #1 -> IN_PROGRESS).
+      await vi.advanceTimersByTimeAsync(50);
+      expect(dnCallCount).toBe(1);
+
+      // With the toggle off, an in-progress scan still polls every 5s. Advancing
+      // the timer drives further reads (#2 IN_PROGRESS, #3 FINISHED).
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(dnCallCount).toBe(2);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(dnCallCount).toBe(3);
+
+      // Once FINISHED, polling stops even though Auto Refresh remains off.
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(dnCallCount).toBe(3);
+    } finally {
+      vi.useRealTimers();
+      sessionStorage.removeItem('autoReloadEnabled');
+    }
+  });
 });

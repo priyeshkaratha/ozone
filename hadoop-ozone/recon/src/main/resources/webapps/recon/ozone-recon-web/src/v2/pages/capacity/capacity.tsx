@@ -202,18 +202,27 @@ const Capacity: React.FC<object> = () => {
     }
   };
 
-  // Adjust the polling interval based on DN scan status:
+  // Keep the latest refresh callback in a ref so the interval below always calls
+  // the current closure instead of a stale one captured when the effect last ran.
+  const loadDataIfIdleRef = React.useRef(loadDataIfIdle);
+  loadDataIfIdleRef.current = loadDataIfIdle;
+
+  // Drive the DN pending-deletion scan through to completion:
   // fast (5s) while a scan is running, normal (60s) once finished.
-  // Honors the auto-reload toggle: if polling is OFF, do nothing.
+  // A running scan must be polled to completion and refresh the whole page even
+  // when Auto Refresh is off, otherwise the datanode sections stay stuck loading
+  // after the toggle is disabled. The toggle only governs the steady-state
+  // periodic reload once the scan has FINISHED.
   React.useEffect(() => {
-    if (!autoReload.isPolling) {
+    const scanInProgress = dnPendingDeletes.data.status !== "FINISHED";
+    if (autoReload.isPolling) {
+      autoReload.startPolling(scanInProgress ? PENDING_POLL_INTERVAL : AUTO_RELOAD_INTERVAL_DEFAULT);
       return;
     }
-    autoReload.startPolling(
-      dnPendingDeletes.data.status === "FINISHED"
-        ? AUTO_RELOAD_INTERVAL_DEFAULT
-        : PENDING_POLL_INTERVAL
-    );
+    if (scanInProgress) {
+      const timer = window.setInterval(() => loadDataIfIdleRef.current(), PENDING_POLL_INTERVAL);
+      return () => clearInterval(timer);
+    }
   }, [dnPendingDeletes.data.status, autoReload.isPolling]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dnReportStatus = (
