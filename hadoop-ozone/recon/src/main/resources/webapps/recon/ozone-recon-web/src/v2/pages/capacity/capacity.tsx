@@ -38,7 +38,6 @@ import { useApiData } from '@/v2/hooks/useAPIData.hook';
 import * as CONSTANTS from '@/v2/constants/capacity.constants';
 import { UtilizationResponse, SCMPendingDeletion, OMPendingDeletion, DNPendingDeletion, DataNodeUsage } from '@/v2/types/capacity.types';
 import { useAutoReload } from '@/v2/hooks/useAutoReload.hook';
-import { AUTO_RELOAD_INTERVAL_DEFAULT } from '@/constants/autoReload.constants';
 
 type CapacityState = {
   lastUpdated: number;
@@ -202,28 +201,58 @@ const Capacity: React.FC<object> = () => {
     }
   };
 
-  // Keep the latest refresh callback in a ref so the interval below always calls
-  // the current closure instead of a stale one captured when the effect last ran.
-  const loadDataIfIdleRef = React.useRef(loadDataIfIdle);
-  loadDataIfIdleRef.current = loadDataIfIdle;
+  // --- DN pending-deletion scan polling --------------------------------------
+  // The periodic full refresh (all four endpoints) is driven by useAutoReload
+  // when Auto Refresh is enabled, and by the manual reload button otherwise.
+  // On top of that, whenever a DN scan is reported IN_PROGRESS we poll ONLY the
+  // DN endpoint at a fast cadence until it finishes, then refetch the other
+  // endpoints once so the aggregate pending-deletion numbers reflect the final
+  // DN data. This runs regardless of the Auto Refresh toggle, because a running
+  // scan must be driven to completion either way.
 
-  // Drive the DN pending-deletion scan through to completion:
-  // fast (5s) while a scan is running, normal (60s) once finished.
-  // A running scan must be polled to completion and refresh the whole page even
-  // when Auto Refresh is off, otherwise the datanode sections stay stuck loading
-  // after the toggle is disabled. The toggle only governs the steady-state
-  // periodic reload once the scan has FINISHED.
-  React.useEffect(() => {
-    const scanInProgress = dnPendingDeletes.data.status !== "FINISHED";
-    if (autoReload.isPolling) {
-      autoReload.startPolling(scanInProgress ? PENDING_POLL_INTERVAL : AUTO_RELOAD_INTERVAL_DEFAULT);
-      return;
+  // Refetch only the DN endpoint. Kept in a ref so the interval below always
+  // reads the current `loading` value instead of a stale closure (the effect
+  // does not re-run while the status stays IN_PROGRESS).
+  const pollDnScanRef = React.useRef<() => void>(() => {});
+  pollDnScanRef.current = () => {
+    if (!dnPendingDeletes.loading) {
+      dnPendingDeletes.refetch();
     }
+  };
+
+  // Refetch everything except the DN endpoint, to re-sync the OM / SCM / storage
+  // numbers with the DN data once the scan has finished.
+  const syncNonDnDataRef = React.useRef<() => void>(() => {});
+  syncNonDnDataRef.current = () => {
+    storageDistribution.refetch();
+    scmPendingDeletes.refetch();
+    omPendingDeletes.refetch();
+    setState({ lastUpdated: Number(moment()) });
+  };
+
+  // True while we are actively driving a DN scan, so that we sync the other
+  // endpoints exactly once when it transitions to FINISHED — and not on the
+  // initial load, where all four endpoints were already fetched together.
+  const isDrivingDnScanRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const scanInProgress = dnPendingDeletes.data.status === "IN_PROGRESS";
+
     if (scanInProgress) {
-      const timer = window.setInterval(() => loadDataIfIdleRef.current(), PENDING_POLL_INTERVAL);
+      isDrivingDnScanRef.current = true;
+      const timer = window.setInterval(() => pollDnScanRef.current(), PENDING_POLL_INTERVAL);
       return () => clearInterval(timer);
     }
-  }, [dnPendingDeletes.data.status, autoReload.isPolling]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Reached a terminal state (FINISHED / FAILED). If we were driving a scan,
+    // sync the other endpoints once (only on success) and stop tracking it.
+    if (isDrivingDnScanRef.current) {
+      isDrivingDnScanRef.current = false;
+      if (dnPendingDeletes.data.status === "FINISHED") {
+        syncNonDnDataRef.current();
+      }
+    }
+  }, [dnPendingDeletes.data.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dnReportStatus = (
     (dnPendingDeletes.data.totalNodeQueriesFailed ?? 0) > 0
