@@ -132,7 +132,10 @@ const Capacity: React.FC<object> = () => {
 
   const autoReload = useAutoReload(loadDataIfIdle);
 
-  const selectedDNDetails: DataNodeUsage & { pendingBlockSize: number } = React.useMemo(() => {
+  const selectedDNDetails: DataNodeUsage & {
+    pendingBlockSize: number;
+    unavailable: boolean;
+  } = React.useMemo(() => {
     const selected = storageDistribution.data.dataNodeUsage.find(datanode => datanode.hostName === selectedDatanode)
       ?? storageDistribution.data.dataNodeUsage[0];
     const dnPendingEntry = dnPendingDeletes.data.pendingDeletionPerDataNode?.find(
@@ -150,7 +153,10 @@ const Capacity: React.FC<object> = () => {
         reserved: 0
       }),
       ...dnPendingEntry,
-      pendingBlockSize: Math.max(0, dnPendingEntry.pendingBlockSize)
+      pendingBlockSize: Math.max(0, dnPendingEntry.pendingBlockSize),
+      // -1 is the sentinel for a DN whose pending deletion query failed (offline/unreachable).
+      // Its capacity data from the storage report may be outdated, so surface an error instead.
+      unavailable: dnPendingEntry.pendingBlockSize === -1
     }
   }, [selectedDatanode, storageDistribution.data.dataNodeUsage, dnPendingDeletes.data.pendingDeletionPerDataNode]);
 
@@ -510,6 +516,9 @@ const Capacity: React.FC<object> = () => {
             dataDetails={[{
               title: 'USED SPACE',
               size: (selectedDNDetails.used ?? 0) + (selectedDNDetails.pendingBlockSize ?? 0),
+              hasError: selectedDNDetails.unavailable,
+              errorMessage: 'Datanode is unavailable; capacity data may be outdated.',
+              errorTestId: 'dn-used-space-error',
               breakdown: [{
                 label: 'PENDING DELETION',
                 value: selectedDNDetails.pendingBlockSize ?? 0,
@@ -522,6 +531,9 @@ const Capacity: React.FC<object> = () => {
             }, {
               title: 'FREE SPACE',
               size: (selectedDNDetails.remaining ?? 0) + (selectedDNDetails.committed ?? 0),
+              hasError: selectedDNDetails.unavailable,
+              errorMessage: 'Datanode is unavailable; capacity data may be outdated.',
+              errorTestId: 'dn-free-space-error',
               breakdown: [{
                 label: unusedSpaceBreakdown,
                 value: selectedDNDetails.remaining ?? 0,

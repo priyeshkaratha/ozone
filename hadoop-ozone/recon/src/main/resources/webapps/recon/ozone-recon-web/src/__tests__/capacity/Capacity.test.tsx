@@ -101,7 +101,7 @@ describe('Capacity Page', () => {
     expect(datanodeCard).toHaveTextContent(/FREE SPACE\s*3\s*KB/i);
   });
 
-  test('clamps pendingBlockSize to 0 when selected datanode reports -1 (offline/unreachable)', async () => {
+  test('shows error card instead of outdated data when default-selected datanode reports -1 (offline/unreachable)', async () => {
     capacityServer.use(
       rest.get('api/v1/pendingDeletion', (req, res, ctx) => {
         const component = req.url.searchParams.get('component');
@@ -136,13 +136,15 @@ describe('Capacity Page', () => {
     if (!datanodeCard) {
       return;
     }
-    // dn-1 is selected by default; its pendingBlockSize is -1 (offline sentinel).
-    // PENDING DELETION should show 0 B, not a negative value.
+    // dn-1 is selected by default; its pendingBlockSize is -1 (offline sentinel), so the
+    // datanode is unavailable and its capacity data may be outdated. Show an error card for
+    // USED SPACE and FREE SPACE instead of the stale storage-report values.
+    expect(await screen.findByTestId('dn-used-space-error')).toBeInTheDocument();
+    expect(await screen.findByTestId('dn-free-space-error')).toBeInTheDocument();
     await waitFor(() =>
-      expect(datanodeCard).toHaveTextContent(/PENDING DELETION\s*0\s*B/i)
+      expect(datanodeCard).toHaveTextContent(/USED SPACE\s*N\/A/i)
     );
-    // USED SPACE = used (4096) + clamped pendingBlockSize (0) = 4 KB
-    expect(datanodeCard).toHaveTextContent(/USED SPACE\s*4\s*KB/i);
+    expect(datanodeCard).toHaveTextContent(/FREE SPACE\s*N\/A/i);
   });
 
   test('shows scm-only error state when SCM pending deletion returns sentinel failure values', async () => {
