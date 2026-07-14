@@ -315,7 +315,7 @@ describe('Capacity Page', () => {
   });
 
   // Interval constants mirrored from capacity.tsx / autoReload.constants.
-  const PENDING_POLL_INTERVAL = 5* 1000;
+  const PENDING_POLL_INTERVAL = 5 * 1000;
   const AUTO_RELOAD_INTERVAL = 60 * 1000;
 
   type EndpointCounts = { storage: number; scm: number; om: number; dn: number };
