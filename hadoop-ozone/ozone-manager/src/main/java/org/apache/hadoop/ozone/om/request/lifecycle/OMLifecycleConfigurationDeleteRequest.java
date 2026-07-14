@@ -181,7 +181,7 @@ public class OMLifecycleConfigurationDeleteRequest extends OMClientRequest {
       String bucketOwner = ozoneManager.getBucketOwner(volumeName, bucketName,
           IAccessAuthorizer.ACLType.READ, OzoneObj.ResourceType.BUCKET);
       if (!ozoneManager.isAdmin(ugi) && !ozoneManager.isOwner(ugi, bucketOwner)) {
-        throw new OMException("Lifecycle configuration can only be deleted by bucket Admin or Owner",
+        throw new OMException("Lifecycle configuration can only be deleted by cluster Admin or bucket Owner",
             OMException.ResultCodes.PERMISSION_DENIED);
       }
     } else {
