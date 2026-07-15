@@ -51,6 +51,9 @@ services:
     volumes:
       - ../../libexec/transformation.py:/opt/transformation.py
     command: ["hadoop", "kms"]
+    depends_on:
+      kdc:
+        condition: service_healthy
   datanode:
     <<: *common-config
     hostname: dn

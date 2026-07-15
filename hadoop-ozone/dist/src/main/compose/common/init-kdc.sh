@@ -70,6 +70,24 @@ export_keytab HTTP/dn dn
 export_keytab testuser/dn dn
 export_keytab testuser2/dn dn
 
+# Per-host HTTP SPNEGO principals so Recon can collect JMX / pending-deletion
+# metrics from each datanode's web server.  Recon negotiates SPNEGO for
+# HTTP/<datanode-advertised-hostname>, and the datanode HTTP server loads its
+# own principal from dn.keytab, so dn.keytab must carry every datanode's name.
+#
+# ozonesecure: the 'datanode' service is scaled, so docker gives each replica
+# the canonical hostname ozonesecure-datanode-<N>.ozonesecure_default, which the
+# datanode advertises and which HTTP/_HOST resolves to on that same datanode.
+for i in 1 2 3; do
+  export_keytab "HTTP/ozonesecure-datanode-$i.ozonesecure_default" dn
+done
+# ozonesecure-ha: datanodes are distinct services pinned to a stable advertised
+# hostname via hdds.datanode.hostname=datanode<N>, each with a matching fixed
+# HTTP principal (see ozonesecure-ha/docker-compose.yaml).
+for i in 1 2 3; do
+  export_keytab "HTTP/datanode$i" dn
+done
+
 export_keytab HTTP/scm HTTP
 export_keytab HTTP/s3g HTTP
 export_keytab HTTP/httpfs HTTP

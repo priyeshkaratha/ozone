@@ -54,6 +54,9 @@ services:
     environment:
       HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
     command: ["hadoop", "kms"]
+    depends_on:
+      kdc:
+        condition: service_healthy
     networks:
       ozone_net:
         ipv4_address: 172.25.0.101
@@ -70,6 +73,10 @@ services:
     environment:
       WAITFOR: scm3.org:9894
       OZONE_OPTS:
+      # Pin the advertised hostname and its SPNEGO principal so Recon can reach
+      # this datanode's JMX endpoint at a stable name (see common/init-kdc.sh).
+      OZONE-SITE.XML_hdds.datanode.hostname: datanode1
+      OZONE-SITE.XML_hdds.datanode.http.auth.kerberos.principal: HTTP/datanode1@EXAMPLE.COM
     networks:
       ozone_net:
         ipv4_address: 172.25.0.102
@@ -86,6 +93,10 @@ services:
     environment:
       WAITFOR: scm3.org:9894
       OZONE_OPTS:
+      # Pin the advertised hostname and its SPNEGO principal so Recon can reach
+      # this datanode's JMX endpoint at a stable name (see common/init-kdc.sh).
+      OZONE-SITE.XML_hdds.datanode.hostname: datanode2
+      OZONE-SITE.XML_hdds.datanode.http.auth.kerberos.principal: HTTP/datanode2@EXAMPLE.COM
     networks:
       ozone_net:
         ipv4_address: 172.25.0.103
@@ -102,6 +113,10 @@ services:
     environment:
       WAITFOR: scm3.org:9894
       OZONE_OPTS:
+      # Pin the advertised hostname and its SPNEGO principal so Recon can reach
+      # this datanode's JMX endpoint at a stable name (see common/init-kdc.sh).
+      OZONE-SITE.XML_hdds.datanode.hostname: datanode3
+      OZONE-SITE.XML_hdds.datanode.http.auth.kerberos.principal: HTTP/datanode3@EXAMPLE.COM
     networks:
       ozone_net:
         ipv4_address: 172.25.0.104

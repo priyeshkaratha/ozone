@@ -1,0 +1,45 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Opt-in overlay that makes the Recon web UI browsable in the secure cluster.
+#
+#   docker-compose -f docker-compose.yaml -f recon-ui.yaml up -d
+#
+# then open http://localhost:9888 in a browser (no kinit required).
+#
+# This is NOT loaded by the acceptance tests (test.sh uses docker-compose.yaml
+# only), so the tested cluster keeps Recon on Kerberos/SPNEGO.  See README.md.
+services:
+  # Switch Recon's HTTP auth to "simple"; the recon-ui proxy supplies the admin
+  # identity.  All other services (OM, SCM, datanode, S3G) stay on Kerberos.
+  recon:
+    ports: !reset []
+    environment:
+      OZONE_OPTS:
+      OZONE-SITE.XML_ozone.recon.http.auth.type: simple
+
+  # Reverse proxy that injects an admin user.name so the browser does not need
+  # a Kerberos ticket.  Publishes the Recon UI port in place of Recon itself.
+  recon-ui:
+    image: nginx:alpine
+    hostname: recon-ui
+    dns_search: .
+    ports:
+      - 9888:9888
+    volumes:
+      - ../common/recon-ui.nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - recon
