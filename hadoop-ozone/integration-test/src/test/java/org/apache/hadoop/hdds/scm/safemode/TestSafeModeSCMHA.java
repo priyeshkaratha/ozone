@@ -19,11 +19,16 @@ package org.apache.hadoop.hdds.scm.safemode;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.THREE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.List;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.scm.ha.SCMStateMachine;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
@@ -65,6 +70,38 @@ public class TestSafeModeSCMHA {
     if (cluster != null) {
       cluster.shutdown();
     }
+  }
+
+  @Test
+  public void testManualSafeModeIsPerNode() throws Exception {
+    // Cluster is ready, so all SCMs are out of safe mode.
+    List<StorageContainerManager> scms = cluster.getStorageContainerManagers();
+    for (StorageContainerManager scm : scms) {
+      GenericTestUtils.waitFor(() -> !scm.isInSafeMode(), 500, 60000);
+    }
+
+    StorageContainerManager target = scms.get(0);
+    StorageContainerManager other = scms.get(1);
+
+    // Manual safe mode is per-node local state: entering it on one SCM must
+    // not affect the others.
+    target.enterSafeMode();
+    assertTrue(target.isInSafeMode());
+    assertEquals(SafeModeReasonProto.MANUAL, target.getSafeModeReason());
+    assertFalse(other.isInSafeMode());
+    assertEquals(SafeModeReasonProto.SAFE_MODE_REASON_NONE,
+        other.getSafeModeReason());
+
+    // Manual safe mode never auto-exits; it stays on until cleared.
+    Thread.sleep(2000);
+    assertTrue(target.isInSafeMode());
+    assertEquals(SafeModeReasonProto.MANUAL, target.getSafeModeReason());
+
+    // Exiting clears it on that node only.
+    target.exitSafeMode();
+    assertFalse(target.isInSafeMode());
+    assertEquals(SafeModeReasonProto.SAFE_MODE_REASON_NONE,
+        target.getSafeModeReason());
   }
 
   @Test

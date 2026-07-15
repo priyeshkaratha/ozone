@@ -65,6 +65,7 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto.Builder;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
 import org.apache.hadoop.hdds.protocolPB.ReconfigureProtocolPB;
 import org.apache.hadoop.hdds.protocolPB.ReconfigureProtocolServerSideTranslatorPB;
@@ -1061,6 +1062,36 @@ public class SCMClientProtocolServer implements
         buildAuditMessageForSuccess(SCMAction.IN_SAFE_MODE, null)
     );
     return scm.isInSafeMode();
+  }
+
+  @Override
+  public SafeModeReasonProto getSafeModeReason() throws IOException {
+    // No separate audit entry: this is resolved as part of the InSafeMode RPC,
+    // which already audits IN_SAFE_MODE.
+    return scm.getSafeModeReason();
+  }
+
+  /**
+   * Put SCM into manual safe mode.
+   *
+   * @return true if SCM is in safe mode after the call.
+   * @throws IOException
+   */
+  @Override
+  public boolean enterSafeMode() throws IOException {
+    try {
+      getScm().checkAdminAccess(getRemoteUser(), false);
+      boolean result = scm.enterSafeMode();
+      AUDIT.logWriteSuccess(
+          buildAuditMessageForSuccess(SCMAction.ENTER_SAFE_MODE, null)
+      );
+      return result;
+    } catch (Exception ex) {
+      AUDIT.logWriteFailure(
+          buildAuditMessageForFailure(SCMAction.ENTER_SAFE_MODE, null, ex)
+      );
+      throw ex;
+    }
   }
 
   @Override

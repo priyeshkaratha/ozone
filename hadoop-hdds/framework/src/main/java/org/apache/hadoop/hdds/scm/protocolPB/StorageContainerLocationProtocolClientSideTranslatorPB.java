@@ -68,6 +68,8 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionNodesResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.EnterSafeModeRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.EnterSafeModeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.FinalizeScmUpgradeRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.FinalizeScmUpgradeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ForceExitSafeModeRequestProto;
@@ -114,6 +116,7 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SCMListContainerIDsResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SCMListContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SCMListContainerResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeRuleStatusProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ScmContainerLocationRequest;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ScmContainerLocationRequest.Builder;
@@ -224,9 +227,11 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
 
   private ScmContainerLocationResponse submitRpcRequest(
       ScmContainerLocationRequest wrapper) throws ServiceException {
-    // If targetScmNode has a specific node ID, route follower-readable requests to that node
-    if (targetScmNode != null && targetScmNode.hasNodeId() && 
-        FOLLOWER_READABLE_COMMAND_TYPES.contains(wrapper.getCmdType())) {
+    // If targetScmNode has a specific node ID, route node-targetable requests
+    // (follower-readable reads, and per-node safe mode writes) to that node.
+    if (targetScmNode != null && targetScmNode.hasNodeId() &&
+        (FOLLOWER_READABLE_COMMAND_TYPES.contains(wrapper.getCmdType()) ||
+            NODE_TARGETABLE_COMMAND_TYPES.contains(wrapper.getCmdType()))) {
       try {
         StorageContainerLocationProtocolPB proxy = fpp.getProxyForNode(targetScmNode.getNodeId());
         return proxy.submitRequest(NULL_RPC_CONTROLLER, wrapper);
@@ -881,6 +886,16 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
   }
 
   @Override
+  public SafeModeReasonProto getSafeModeReason() throws IOException {
+    InSafeModeRequestProto request =
+        InSafeModeRequestProto.getDefaultInstance();
+
+    return submitRequest(Type.InSafeMode,
+        builder -> builder.setInSafeModeRequest(request))
+        .getInSafeModeResponse().getSafeModeReason();
+  }
+
+  @Override
   public Map<String, Pair<Boolean, String>> getSafeModeRuleStatuses()
       throws IOException {
     GetSafeModeRuleStatusesRequestProto request =
@@ -922,6 +937,23 @@ public final class StorageContainerLocationProtocolClientSideTranslatorPB
 
     return resp.getExitedSafeMode();
 
+  }
+
+  /**
+   * Put SCM into manual safe mode.
+   *
+   * @return true if SCM is in safe mode after the call.
+   */
+  @Override
+  public boolean enterSafeMode() throws IOException {
+    EnterSafeModeRequestProto request =
+        EnterSafeModeRequestProto.getDefaultInstance();
+    EnterSafeModeResponseProto resp =
+        submitRequest(Type.EnterSafeMode,
+            builder -> builder.setEnterSafeModeRequest(request))
+            .getEnterSafeModeResponse();
+
+    return resp.getInSafeMode();
   }
 
   @Override

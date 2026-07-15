@@ -60,6 +60,9 @@ public final class SCMContext {
    * Safe mode related info.
    */
   private SafeModeStatus safeModeStatus;
+  // Manual safe mode is an independent reason for SCM to be in safe mode.
+  // isInSafeMode() reports the effective state: startup OR manual.
+  private boolean manualSafeMode;
 
   private final OzoneStorageContainerManager scm;
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -228,10 +231,25 @@ public final class SCMContext {
     }
   }
 
+  /**
+   * @param manual whether SCM is currently in manual safe mode.
+   */
+  public void updateManualSafeMode(boolean manual) {
+    lock.writeLock().lock();
+    try {
+      if (manualSafeMode != manual) {
+        LOG.info("Update manual safe mode from {} to {}.", manualSafeMode, manual);
+      }
+      manualSafeMode = manual;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
   public boolean isInSafeMode() {
     lock.readLock().lock();
     try {
-      return safeModeStatus.isInSafeMode();
+      return safeModeStatus.isInSafeMode() || manualSafeMode;
     } finally {
       lock.readLock().unlock();
     }

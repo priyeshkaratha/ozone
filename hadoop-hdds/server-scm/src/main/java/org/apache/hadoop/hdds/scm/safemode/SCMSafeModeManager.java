@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.HddsConfigKeys;
@@ -79,6 +80,10 @@ public class SCMSafeModeManager implements SafeModeManager {
   private static final Logger LOG = LoggerFactory.getLogger(SCMSafeModeManager.class);
 
   private final AtomicReference<SafeModeStatus> status = new AtomicReference<>(SafeModeStatus.INITIAL);
+  // Manual safe mode is a second, independent reason for SCM to be in safe
+  // mode. It is entered/exited only by an administrator and never auto-exits.
+  // Effective safe mode = startup (status) safe mode OR manual safe mode.
+  private final AtomicBoolean manualSafeMode = new AtomicBoolean(false);
   private final Map<String, SafeModeExitRule<?>> exitRules = new HashMap<>();
   private final Set<String> preCheckRules = new HashSet<>();
   private final Set<String> validatedRules = new HashSet<>();
@@ -173,14 +178,28 @@ public class SCMSafeModeManager implements SafeModeManager {
 
   private void emitSafeModeStatus() {
     final SafeModeStatus safeModeStatus = status.get();
-    safeModeMetrics.setScmInSafeMode(safeModeStatus.isInSafeMode());
+    final boolean manual = manualSafeMode.get();
+    // Effective safe mode is on if startup safe mode is on OR manual safe mode
+    // is on. Clients only ever observe this effective state.
+    final boolean effectiveInSafeMode = safeModeStatus.isInSafeMode() || manual;
+
+    safeModeMetrics.setScmInSafeMode(effectiveInSafeMode);
+    // Mirror both the startup status enum and the manual flag into SCMContext
+    // so its cached isInSafeMode() reflects the effective state without
+    // altering the SafeModeStatus pre-check semantics.
     scmContext.updateSafeModeStatus(safeModeStatus);
+    scmContext.updateManualSafeMode(manual);
     logSafeModeStatus();
 
     // notify SCMServiceManager
-    if (!safeModeStatus.isInSafeMode()) {
+    if (!effectiveInSafeMode) {
       stopSafeModePeriodicLogger();
       // If safemode is off, then notify the delayed listeners with a delay.
+      serviceManager.notifyStatusChanged();
+    } else if (manual) {
+      // Manual safe mode entered (or re-emitted while active): notify services
+      // so they observe the safe-mode state and pause. Services read
+      // scmContext.isInSafeMode(), which is already updated above.
       serviceManager.notifyStatusChanged();
     } else if (safeModeStatus.isPreCheckComplete()) {
       // Only notify the delayed listeners if safemode remains on, as precheck
@@ -221,12 +240,50 @@ public class SCMSafeModeManager implements SafeModeManager {
 
   public void forceExitSafeMode() {
     boolean wasInSafeMode = getInSafeMode();
-    LOG.info("SCM force-exiting safe mode.");
+    LOG.info("SCM force-exiting startup safe mode.");
     status.set(SafeModeStatus.OUT_OF_SAFE_MODE);
     emitSafeModeStatus();
-    if (wasInSafeMode) {
+    // Only record the exit duration if this actually took SCM out of safe
+    // mode. If manual safe mode is still active, SCM remains in safe mode.
+    if (wasInSafeMode && !getInSafeMode()) {
       recordSafeModeExitDuration();
     }
+  }
+
+  /**
+   * Enter manual safe mode on this SCM. Manual safe mode is per-node local
+   * state; it never auto-exits and can only be cleared by
+   * {@link #exitManualSafeModeLocal()} (or {@link #forceExitSafeMode()}).
+   */
+  public void enterManualSafeModeLocal() {
+    boolean wasInSafeMode = getInSafeMode();
+    if (manualSafeMode.compareAndSet(false, true)) {
+      LOG.info("SCM entering manual safe mode.");
+      if (!wasInSafeMode) {
+        safeModeEnteredAtNanos = Time.monotonicNowNanos();
+      }
+      emitSafeModeStatus();
+      startSafeModePeriodicLogger();
+    }
+  }
+
+  /**
+   * Exit manual safe mode on this SCM. If startup safe mode has already
+   * completed, this takes SCM fully out of safe mode.
+   */
+  public void exitManualSafeModeLocal() {
+    boolean wasInSafeMode = getInSafeMode();
+    if (manualSafeMode.compareAndSet(true, false)) {
+      LOG.info("SCM exiting manual safe mode.");
+      emitSafeModeStatus();
+      if (wasInSafeMode && !getInSafeMode()) {
+        recordSafeModeExitDuration();
+      }
+    }
+  }
+
+  public boolean isManualSafeMode() {
+    return manualSafeMode.get();
   }
 
   /**
@@ -267,7 +324,7 @@ public class SCMSafeModeManager implements SafeModeManager {
 
   @Override
   public boolean getInSafeMode() {
-    return status.get().isInSafeMode();
+    return status.get().isInSafeMode() || manualSafeMode.get();
   }
 
   /** Get the safe mode status of all rules. */

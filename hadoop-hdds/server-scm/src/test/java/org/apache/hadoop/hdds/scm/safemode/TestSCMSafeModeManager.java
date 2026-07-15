@@ -543,6 +543,66 @@ public class TestSCMSafeModeManager {
     assertFalse(scmSafeModeManager.getInSafeMode());
   }
 
+  /**
+   * Manual safe mode can be entered after startup safe mode is off, keeps SCM
+   * in safe mode until manually exited, and is reflected in SCMContext.
+   */
+  @Test
+  public void testManualSafeModeEnterExit() {
+    OzoneConfiguration conf = new OzoneConfiguration(config);
+    conf.setBoolean(HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED, false);
+    ContainerManager containerManager = mock(ContainerManager.class);
+    when(containerManager.getContainers(ReplicationType.RATIS)).thenReturn(containers);
+    scmSafeModeManager = new SCMSafeModeManager(conf, mock(SCMNodeManager.class),
+        mock(PipelineManager.class), containerManager, serviceManager, queue, scmContext);
+
+    // Startup safe mode is disabled, so SCM is out of safe mode initially.
+    assertFalse(scmSafeModeManager.getInSafeMode());
+    assertFalse(scmSafeModeManager.isManualSafeMode());
+    assertFalse(scmContext.isInSafeMode());
+
+    scmSafeModeManager.enterManualSafeModeLocal();
+    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmSafeModeManager.isManualSafeMode());
+    assertTrue(scmContext.isInSafeMode());
+
+    scmSafeModeManager.exitManualSafeModeLocal();
+    assertFalse(scmSafeModeManager.getInSafeMode());
+    assertFalse(scmSafeModeManager.isManualSafeMode());
+    assertFalse(scmContext.isInSafeMode());
+  }
+
+  /**
+   * While manual safe mode is active, force-exiting startup safe mode (the
+   * effect of all startup rules validating) must not take SCM out of safe
+   * mode. Only exiting manual safe mode does.
+   */
+  @Test
+  public void testManualSafeModeNeutralizesAutoExit() throws Exception {
+    ContainerManager containerManager = mock(ContainerManager.class);
+    when(containerManager.getContainers(ReplicationType.RATIS)).thenReturn(containers);
+    scmSafeModeManager = new SCMSafeModeManager(config, null, null, containerManager,
+        serviceManager, queue, scmContext);
+    scmSafeModeManager.start();
+
+    // Startup safe mode.
+    assertTrue(scmSafeModeManager.getInSafeMode());
+
+    scmSafeModeManager.enterManualSafeModeLocal();
+    assertTrue(scmSafeModeManager.isManualSafeMode());
+
+    // Simulate startup safe mode rules all validating (auto-exit). This must
+    // NOT take SCM out of safe mode because manual safe mode is active.
+    scmSafeModeManager.forceExitSafeMode();
+    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmContext.isInSafeMode());
+
+    // Exiting manual safe mode finally takes SCM out of safe mode.
+    scmSafeModeManager.exitManualSafeModeLocal();
+    assertFalse(scmSafeModeManager.getInSafeMode());
+    assertFalse(scmContext.isInSafeMode());
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {0, 3, 5})
   public void testSafeModeDataNodeExitRule(int numberOfDns) throws Exception {
@@ -1021,7 +1081,7 @@ public class TestSCMSafeModeManager {
       String exitLog = logCapturer.getOutput();
       assertThat(exitLog).contains("SCM SafeMode Status | state=OUT_OF_SAFE_MODE");
       assertThat(exitLog).contains("Stopped periodic Safe Mode logging");
-      assertThat(exitLog).contains("SCM force-exiting safe mode");
+      assertThat(exitLog).contains("SCM force-exiting startup safe mode");
 
     } finally {
       logCapturer.stopCapturing();

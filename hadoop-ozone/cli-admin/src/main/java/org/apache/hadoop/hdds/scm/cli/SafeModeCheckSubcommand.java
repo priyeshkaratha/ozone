@@ -28,6 +28,7 @@ import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.cli.AbstractSubcommand;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.scm.client.ScmClient;
 import org.apache.hadoop.hdds.scm.ha.SCMNodeInfo;
 import org.apache.hadoop.hdds.scm.protocolPB.StorageContainerLocationProtocolClientSideTranslatorPB.ScmNodeTarget;
@@ -148,20 +149,24 @@ public class SafeModeCheckSubcommand extends AbstractSubcommand implements Calla
 
   private void queryNode(ScmClient scmClient, ScmNodeTarget targetScmNode, SCMNodeInfo node) {
     String nodeId = node.getNodeId();
-    
+
     try {
       // Set the targetScmNode to target this specific node
       targetScmNode.setNodeId(nodeId);
-      
-      boolean inSafeMode = scmClient.inSafeMode();
+
+      SafeModeReasonProto reason = scmClient.getSafeModeReason();
+      boolean inSafeMode = reason != SafeModeReasonProto.SAFE_MODE_REASON_NONE;
+      // Reason (STARTUP/MANUAL) is admin-facing detail only.
+      String reasonSuffix = inSafeMode ? " (" + reason + ")" : "";
 
       if (serviceId != null) {
-        System.out.printf("%s [%s]: %s%n",
+        System.out.printf("%s [%s]: %s%s%n",
             node.getScmClientAddress(),
             nodeId,
-            inSafeMode ? "in safe mode" : "out of safe mode");
+            inSafeMode ? "in safe mode" : "out of safe mode",
+            reasonSuffix);
       } else {
-        System.out.printf("SCM is %s safe mode.%n", inSafeMode ? "in" : "out of");
+        System.out.printf("SCM is %s safe mode%s.%n", inSafeMode ? "in" : "out of", reasonSuffix);
       }
 
       if (isVerbose()) {
@@ -180,35 +185,9 @@ public class SafeModeCheckSubcommand extends AbstractSubcommand implements Calla
    * Tries to match by direct string comparison and by resolved address.
    */
   private boolean matchesAddress(String address1, String address2) {
-    if (address1.equalsIgnoreCase(address2)) {
-      return true;
-    }
-
-    try {
-      // Parse both addresses into host:port components
-      String[] parts1 = address1.split(":", 2);
-      String[] parts2 = address2.split(":", 2);
-
-      String host1 = parts1[0];
-      String host2 = parts2[0];
-      
-      // Hostnames must match
-      if (!host1.equalsIgnoreCase(host2)) {
-        return false;
-      }
-
-      // If both have ports specified, they must match
-      if (parts1.length > 1 && parts2.length > 1) {
-        return parts1[1].equals(parts2[1]);
-      }
-
-      return true;
-    } catch (Exception e) {
-      // If address resolution fails, no match
-      return false;
-    }
+    return SafeModeSubcommandUtil.matchesAddress(address1, address2);
   }
-  
+
   private void printSafeModeRules(Map<String, Pair<Boolean, String>> rules) {
     for (Map.Entry<String, Pair<Boolean, String>> entry : rules.entrySet()) {
       Pair<Boolean, String> value = entry.getValue();

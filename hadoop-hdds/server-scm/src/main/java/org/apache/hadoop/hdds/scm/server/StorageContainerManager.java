@@ -67,6 +67,7 @@ import org.apache.hadoop.hdds.conf.TracingReconfigurationCallback;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.protocolPB.SCMSecurityProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.scm.PipelineChoosePolicy;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
@@ -2039,11 +2040,39 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   }
 
   /**
-   * Force SCM out of safe mode.
+   * Force this SCM out of safe mode. Exits manual safe mode if active, and
+   * force-exits startup safe mode. This affects only the SCM that handles the
+   * request; the client fans the request out to all SCMs (or a single targeted
+   * SCM) as requested.
    */
   public boolean exitSafeMode() {
+    scmSafeModeManager.exitManualSafeModeLocal();
     scmSafeModeManager.forceExitSafeMode();
     return true;
+  }
+
+  /**
+   * Put this SCM into manual safe mode. This affects only the SCM that handles
+   * the request; the client fans the request out to all SCMs (or a single
+   * targeted SCM) as requested.
+   */
+  public boolean enterSafeMode() {
+    scmSafeModeManager.enterManualSafeModeLocal();
+    return isInSafeMode();
+  }
+
+  /**
+   * @return the reason SCM is in safe mode (MANUAL, STARTUP) or
+   * SAFE_MODE_REASON_NONE when SCM is not in safe mode. Admin-facing detail
+   * only; clients rely solely on {@link #isInSafeMode()}.
+   */
+  public SafeModeReasonProto getSafeModeReason() {
+    if (scmSafeModeManager.isManualSafeMode()) {
+      return SafeModeReasonProto.MANUAL;
+    }
+    return isInSafeMode()
+        ? SafeModeReasonProto.STARTUP
+        : SafeModeReasonProto.SAFE_MODE_REASON_NONE;
   }
 
   @VisibleForTesting

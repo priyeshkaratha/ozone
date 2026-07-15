@@ -32,6 +32,7 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionSummary;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
 import org.apache.hadoop.hdds.scm.DatanodeAdminError;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
@@ -337,6 +338,16 @@ public interface ScmClient extends Closeable {
   boolean inSafeMode() throws IOException;
 
   /**
+   * Get the reason SCM is in safe mode (STARTUP or MANUAL), or
+   * SAFE_MODE_REASON_NONE when SCM is not in safe mode. Admin-facing detail
+   * only; clients rely solely on {@link #inSafeMode()}.
+   *
+   * @return the safe mode reason.
+   * @throws IOException
+   */
+  SafeModeReasonProto getSafeModeReason() throws IOException;
+
+  /**
    * Get the safe mode status of all rules.
    *
    * @return map of rule statuses.
@@ -352,6 +363,15 @@ public interface ScmClient extends Closeable {
    * @throws IOException
    */
   boolean forceExitSafeMode() throws IOException;
+
+  /**
+   * Put SCM into manual safe mode. Manual safe mode never auto-exits and must
+   * be cleared with {@link #forceExitSafeMode()}.
+   *
+   * @return true if SCM is in safe mode after the call.
+   * @throws IOException
+   */
+  boolean enterSafeMode() throws IOException;
 
   /**
    * Start ReplicationManager.

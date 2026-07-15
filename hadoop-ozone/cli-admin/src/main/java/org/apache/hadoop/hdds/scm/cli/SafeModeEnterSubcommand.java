@@ -27,18 +27,20 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
- * Handler for the safe mode exit command. Forces SCM out of safe mode,
- * clearing both startup and manual safe mode. With no {@code --scm} option it
- * applies to all SCMs in the service; with {@code --scm host:port} it applies
- * to that single SCM only.
+ * Handler for the safe mode enter command. Puts SCM into manual safe mode,
+ * which never auto-exits and must be cleared with
+ * {@code ozone admin safemode exit}. With no {@code --scm} option it applies to
+ * all SCMs in the service; with {@code --scm host:port} it applies to that
+ * single SCM only.
  */
 @Command(
-    name = "exit",
-    description = "Force SCM out of safe mode. Applies to all SCMs, or to a "
-        + "single SCM when --scm is given.",
+    name = "enter",
+    description = "Put SCM into manual safe mode. Applies to all SCMs, or to a "
+        + "single SCM when --scm is given. Manual safe mode never auto-exits "
+        + "and must be cleared with 'ozone admin safemode exit'.",
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class)
-public class SafeModeExitSubcommand extends AbstractSubcommand
+public class SafeModeEnterSubcommand extends AbstractSubcommand
     implements Callable<Void> {
 
   @CommandLine.Mixin
@@ -50,14 +52,12 @@ public class SafeModeExitSubcommand extends AbstractSubcommand
     ScmNodeTarget target =
         SafeModeSubcommandUtil.resolveTarget(conf, scmOption.getScm());
     try (ScmClient scmClient = scmOption.createScmClient(conf, target)) {
-      boolean execReturn = scmClient.forceExitSafeMode();
-      if (execReturn) {
-        if (target.hasNodeId()) {
-          System.out.printf("SCM [%s] exited safe mode successfully.%n",
-              target.getNodeId());
-        } else {
-          System.out.println("SCM exit safe mode successfully.");
-        }
+      boolean inSafeMode = scmClient.enterSafeMode();
+      if (target.hasNodeId()) {
+        System.out.printf("SCM [%s] entered manual safe mode (inSafeMode=%s).%n",
+            target.getNodeId(), inSafeMode);
+      } else {
+        System.out.println("All SCMs entered manual safe mode.");
       }
     }
     return null;

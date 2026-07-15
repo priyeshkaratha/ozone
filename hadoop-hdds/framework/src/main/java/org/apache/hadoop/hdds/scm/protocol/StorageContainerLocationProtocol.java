@@ -35,6 +35,7 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransaction
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.DeletedBlocksTransactionSummary;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ContainerBalancerStatusInfoResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.StartContainerBalancerResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.Type;
 import org.apache.hadoop.hdds.scm.DatanodeAdminError;
@@ -71,7 +72,8 @@ public interface StorageContainerLocationProtocol extends Closeable {
   Set<Type> ADMIN_COMMAND_TYPE = Collections.unmodifiableSet(EnumSet.of(
       Type.StartReplicationManager,
       Type.StopReplicationManager,
-      Type.ForceExitSafeMode));
+      Type.ForceExitSafeMode,
+      Type.EnterSafeMode));
 
   /**
    * Read-only commands that can execute on followers without leader check.
@@ -80,6 +82,16 @@ public interface StorageContainerLocationProtocol extends Closeable {
   Set<Type> FOLLOWER_READABLE_COMMAND_TYPES = Collections.unmodifiableSet(EnumSet.of(
       Type.InSafeMode,
       Type.GetSafeModeRuleStatuses));
+
+  /**
+   * Per-node safe mode commands. Without a --scm target they fan out to all
+   * SCMs (see {@link #ADMIN_COMMAND_TYPE}); with a --scm target they execute on
+   * that single SCM only. Manual safe mode is per-node local state, so each SCM
+   * that handles the request applies it to itself.
+   */
+  Set<Type> NODE_TARGETABLE_COMMAND_TYPES = Collections.unmodifiableSet(EnumSet.of(
+      Type.EnterSafeMode,
+      Type.ForceExitSafeMode));
   
   /**
    * Asks SCM where a container should be allocated. SCM responds with the
@@ -411,6 +423,16 @@ public interface StorageContainerLocationProtocol extends Closeable {
    */
   boolean inSafeMode() throws IOException;
 
+  /**
+   * Get the reason SCM is in safe mode (STARTUP or MANUAL), or
+   * SAFE_MODE_REASON_NONE when SCM is not in safe mode. Admin-facing detail
+   * only; clients rely solely on {@link #inSafeMode()}.
+   *
+   * @return the safe mode reason.
+   * @throws IOException
+   */
+  SafeModeReasonProto getSafeModeReason() throws IOException;
+
   Map<String, Pair<Boolean, String>> getSafeModeRuleStatuses()
       throws IOException;
 
@@ -421,6 +443,15 @@ public interface StorageContainerLocationProtocol extends Closeable {
    * @throws IOException
    */
   boolean forceExitSafeMode() throws IOException;
+
+  /**
+   * Put SCM into manual safe mode. Manual safe mode never auto-exits and must
+   * be cleared with {@link #forceExitSafeMode()}.
+   *
+   * @return true if SCM is in safe mode after the call.
+   * @throws IOException
+   */
+  boolean enterSafeMode() throws IOException;
 
   /**
    * Start ReplicationManager.

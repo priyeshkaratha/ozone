@@ -89,6 +89,7 @@ message ScmContainerLocationRequest {
   optional GetDeletedBlocksTxnSummaryRequestProto getDeletedBlocksTxnSummaryRequest = 50;
   optional SCMListContainerIDsRequestProto scmListContainerIDsRequest = 51;
   optional SuppressContainerRequestProto suppressContainerRequest = 52;
+  optional EnterSafeModeRequestProto enterSafeModeRequest = 53;
 }
 
 message ScmContainerLocationResponse {
@@ -149,6 +150,7 @@ message ScmContainerLocationResponse {
   optional GetDeletedBlocksTxnSummaryResponseProto getDeletedBlocksTxnSummaryResponse = 50;
   optional SCMListContainerIDsResponseProto scmListContainerIDsResponse = 51;
   optional SuppressContainerResponseProto suppressContainerResponse = 52;
+  optional EnterSafeModeResponseProto enterSafeModeResponse = 53;
 
   enum Status {
     OK = 1;
@@ -208,6 +210,7 @@ enum Type {
   GetDeletedBlocksTransactionSummary = 46;
   ListContainerIDs = 47;
   SuppressContainer = 48;
+  EnterSafeMode = 49;
 }
 
 /**
@@ -506,8 +509,17 @@ message InSafeModeRequestProto {
   optional string traceID = 1;
 }
 
+// Reason SCM is in safe mode. Admin-facing detail only; clients continue to
+// rely solely on the boolean inSafeMode.
+enum SafeModeReasonProto {
+  SAFE_MODE_REASON_NONE = 0;
+  STARTUP = 1;
+  MANUAL = 2;
+}
+
 message InSafeModeResponseProto {
   required bool inSafeMode = 1;
+  optional SafeModeReasonProto safeModeReason = 2;
 }
 
 message ForceExitSafeModeRequestProto {
@@ -516,6 +528,14 @@ message ForceExitSafeModeRequestProto {
 
 message ForceExitSafeModeResponseProto {
   required bool exitedSafeMode = 1;
+}
+
+message EnterSafeModeRequestProto {
+  optional string traceID = 1;
+}
+
+message EnterSafeModeResponseProto {
+  required bool inSafeMode = 1;
 }
 
 message StartReplicationManagerRequestProto {

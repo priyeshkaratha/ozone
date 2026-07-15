@@ -32,6 +32,7 @@ import picocli.CommandLine.Command;
     versionProvider = HddsVersionProvider.class,
     subcommands = {
         SafeModeCheckSubcommand.class,
+        SafeModeEnterSubcommand.class,
         SafeModeExitSubcommand.class,
         SafeModeWaitSubcommand.class
     })

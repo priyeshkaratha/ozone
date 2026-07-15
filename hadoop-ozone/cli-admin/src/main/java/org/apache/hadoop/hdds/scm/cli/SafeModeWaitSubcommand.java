@@ -20,6 +20,7 @@ package org.apache.hadoop.hdds.scm.cli;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.SafeModeReasonProto;
 import org.apache.hadoop.hdds.scm.client.ScmClient;
 import org.apache.hadoop.util.Time;
 import picocli.CommandLine.Command;
@@ -55,7 +56,16 @@ public class SafeModeWaitSubcommand implements Callable<Void> {
       try (ScmClient scmClient = scmOption.createScmClient()) {
         long remainingTime;
         do {
-          if (!scmClient.inSafeMode()) {
+          SafeModeReasonProto reason = scmClient.getSafeModeReason();
+          if (reason == SafeModeReasonProto.MANUAL) {
+            // Manual safe mode never auto-exits, so there is nothing to wait
+            // for. Report and return immediately.
+            System.out.println("SCM is currently in Manual Safe Mode.");
+            System.out.println(
+                "Manual intervention is required to exit Safe Mode.");
+            return null;
+          }
+          if (reason == SafeModeReasonProto.SAFE_MODE_REASON_NONE) {
             System.out.println("SCM is out of safe mode.");
             return null;
           }

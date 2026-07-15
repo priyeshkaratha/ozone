@@ -66,6 +66,8 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionNodesResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.DecommissionScmResponseProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.EnterSafeModeRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.EnterSafeModeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.FinalizeScmUpgradeRequestProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.FinalizeScmUpgradeResponseProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerLocationProtocolProtos.ForceExitSafeModeRequestProto;
@@ -564,6 +566,13 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
             .setForceExitSafeModeResponse(forceExitSafeMode(
                 request.getForceExitSafeModeRequest()))
             .build();
+      case EnterSafeMode:
+        return ScmContainerLocationResponse.newBuilder()
+            .setCmdType(request.getCmdType())
+            .setStatus(Status.OK)
+            .setEnterSafeModeResponse(enterSafeMode(
+                request.getEnterSafeModeRequest()))
+            .build();
       case StartReplicationManager:
         return ScmContainerLocationResponse.newBuilder()
             .setCmdType(request.getCmdType())
@@ -1051,7 +1060,9 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
       InSafeModeRequestProto request) throws IOException {
 
     return InSafeModeResponseProto.newBuilder()
-        .setInSafeMode(impl.inSafeMode()).build();
+        .setInSafeMode(impl.inSafeMode())
+        .setSafeModeReason(impl.getSafeModeReason())
+        .build();
 
   }
 
@@ -1117,6 +1128,13 @@ public final class StorageContainerLocationProtocolServerSideTranslatorPB
     return ForceExitSafeModeResponseProto.newBuilder()
         .setExitedSafeMode(impl.forceExitSafeMode()).build();
 
+  }
+
+  public EnterSafeModeResponseProto enterSafeMode(
+      EnterSafeModeRequestProto request)
+      throws IOException {
+    return EnterSafeModeResponseProto.newBuilder()
+        .setInSafeMode(impl.enterSafeMode()).build();
   }
 
   public StartReplicationManagerResponseProto startReplicationManager(
