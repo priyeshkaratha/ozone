@@ -100,11 +100,20 @@ const Capacity: React.FC<object> = () => {
     return storageDistribution.data.dataNodeUsage.filter(dn => pendingHostNames.has(dn.hostName));
   }, [storageDistribution.data.dataNodeUsage, dnPendingDeletes.data.pendingDeletionPerDataNode]);
 
-  // Seed selected datanode once data loads so dependent calculations work
+  // Seed selected datanode once data loads so dependent calculations work.
+  // Prefer the first available DN so the user does not land on the error card
+  // while a healthy DN exists; fall back to the first DN (surfacing the error
+  // card) only when every DN is unavailable.
   React.useEffect(() => {
     const hostNames = filteredDNs.map(dn => dn.hostName);
     if (!hostNames.includes(selectedDatanode)) {
-      setSelectedDatanode(hostNames[0] ?? "");
+      const unavailableHosts = new Set(
+        (dnPendingDeletes.data.pendingDeletionPerDataNode ?? [])
+          .filter(dn => dn.pendingBlockSize === -1)
+          .map(dn => dn.hostName)
+      );
+      const firstAvailable = hostNames.find(hostName => !unavailableHosts.has(hostName));
+      setSelectedDatanode(firstAvailable ?? hostNames[0] ?? "");
     }
   }, [filteredDNs]);
 
@@ -497,6 +506,7 @@ const Capacity: React.FC<object> = () => {
             downloadUrl={DN_CSV_DOWNLOAD_URL}
             onDownloadClick={() => downloadCsv(DN_CSV_DOWNLOAD_URL)}
             handleSelect={setSelectedDatanode}
+            selectedValue={selectedDatanode}
             dropdownItems={filteredDNs.map(datanode => ({
               label: (
                 <>
