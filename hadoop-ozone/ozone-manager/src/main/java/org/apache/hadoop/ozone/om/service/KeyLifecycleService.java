@@ -466,6 +466,9 @@ public class KeyLifecycleService extends BackgroundService {
         }
 
         onSuccess(bucketKey);
+      } else {
+        inFlight.remove(bucketKey);
+        LOG.debug("LifecycleActionTask for {} skipped: shouldRun() is false; inFlight entry cleared.", bucketKey);
       }
 
       // By design, no one cares about the results of this call back.

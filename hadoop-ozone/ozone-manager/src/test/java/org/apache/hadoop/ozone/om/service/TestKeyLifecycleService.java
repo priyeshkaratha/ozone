@@ -79,6 +79,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -2957,6 +2958,64 @@ class TestKeyLifecycleService extends OzoneTestBase {
           "MPU count should not change");
 
       deleteLifecyclePolicy(volumeName, bucketName);
+    }
+
+    /**
+     * Regression test for the inFlight stale-entry race, ensuring entries are cleared
+     * when shouldRun() becomes false before task execution.
+     * @throws Exception
+     */
+    @Test
+    void testInFlightClearedWhenCallExitsEarlyDueToSuspend() throws Exception {
+      final String volumeName = getTestName();
+      final String bucketName = uniqueObjectName("bucket");
+      long initialDeletedKeyCount = getDeletedKeyCount();
+
+      // Suspend before creating anything so the scheduler never auto-processes.
+      keyLifecycleService.suspend();
+
+      createKeys(volumeName, bucketName, OBJECT_STORE, KEY_COUNT, 1, "key", null);
+      ZonedDateTime date = ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(EXPIRE_SECONDS);
+      createLifecyclePolicy(volumeName, bucketName, OBJECT_STORE, "key", null, date.toString(), true);
+
+      // Wait for the keys to expire so the next real task run can delete them.
+      Thread.sleep(EXPIRE_SECONDS * 1000L + 500);
+
+      Field inFlightField = KeyLifecycleService.class.getDeclaredField("inFlight");
+      inFlightField.setAccessible(true);
+      @SuppressWarnings("unchecked")
+      ConcurrentHashMap<String, KeyLifecycleService.LifecycleActionTask> inFlight =
+          (ConcurrentHashMap<String, KeyLifecycleService.LifecycleActionTask>)
+              inFlightField.get(keyLifecycleService);
+
+      String bucketKey = metadataManager.getBucketKey(volumeName, bucketName);
+      OmLifecycleConfiguration policy = metadataManager.getLifecycleConfiguration(volumeName, bucketName);
+
+      // Simulate what getTasks() does: create a task and mark the bucket in-flight.
+      KeyLifecycleService.LifecycleActionTask task =
+          keyLifecycleService.new LifecycleActionTask(policy);
+      inFlight.put(bucketKey, task);
+
+      try {
+        // Invoke call() while the service is suspended (shouldRun() == false).
+        // This is the exact path that triggers the bug: the outer if (shouldRun())
+        // guard is false, so neither onSuccess() nor onFailure() is reached, and
+        // inFlight.remove() is never called.
+        task.call();
+
+        // Resume the service. After the fix, call() clears inFlight in its else
+        // branch, so the next getTasks() tick reschedules the bucket and deletes
+        // the expired keys. Without the fix the bucket is stuck in inFlight
+        // forever and waitFor times out.
+        keyLifecycleService.resume();
+        GenericTestUtils.waitFor(
+            () -> (getDeletedKeyCount() - initialDeletedKeyCount) == KEY_COUNT,
+            WAIT_CHECK_INTERVAL, SERVICE_INTERVAL * 20);
+      } finally {
+        inFlight.remove(bucketKey);
+        keyLifecycleService.resume();
+        deleteLifecyclePolicy(volumeName, bucketName);
+      }
     }
 
   }
