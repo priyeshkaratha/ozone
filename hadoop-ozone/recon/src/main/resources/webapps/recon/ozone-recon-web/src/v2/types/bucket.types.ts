@@ -63,11 +63,14 @@ export type Bucket = {
   acls?: Acl[];
   bucketLayout: BucketLayout;
   replicationConfigInfo?: BucketReplicationConfig | null;
+  trappedBytes: number;
+  trappedKeys: number;
 }
 
 export type BucketResponse = {
   totalCount: number;
   buckets: Bucket[];
+  trappedBytesCollectionStatus: "NOT_STARTED" | "IN_PROGRESS" | "FINISHED" | "FAILED";
 }
 
 export type BucketsState = {

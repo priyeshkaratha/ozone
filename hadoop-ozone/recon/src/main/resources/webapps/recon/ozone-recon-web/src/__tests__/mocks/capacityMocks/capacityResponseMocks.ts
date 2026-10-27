@@ -68,9 +68,15 @@ export const ScmPendingDeletion = {
 };
 
 export const OmPendingDeletion = {
-  totalSize: 2048,
-  pendingDirectorySize: 1024,
-  pendingKeySize: 1024
+  status: "FINISHED",
+  totalBucketsQueried: 2,
+  totalBucketQueriesFailed: 0,
+  totalPurgeableSize: 1024,
+  totalSnapshotTrappedSize: 1024,
+  totalPurgeableKeys: 12,
+  totalPurgeableDirs: 3,
+  totalPurgeableKeySize: 768,
+  totalPurgeableDirSize: 256
 };
 
 export const DnPendingDeletion = {

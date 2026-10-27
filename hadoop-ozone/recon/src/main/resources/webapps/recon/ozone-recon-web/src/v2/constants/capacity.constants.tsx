@@ -50,9 +50,13 @@ export const DEFAULT_SCM_PENDING_DELETION: SCMPendingDeletion = {
 };
 
 export const DEFAULT_OM_PENDING_DELETION: OMPendingDeletion = {
-  totalSize: 0,
-  pendingDirectorySize: 0,
-  pendingKeySize: 0
+  status: "NOT_STARTED",
+  totalPurgeableSize: -1,
+  totalSnapshotTrappedSize: -1,
+  totalPurgeableKeys: -1,
+  totalPurgeableDirs: -1,
+  totalPurgeableKeySize: -1,
+  totalPurgeableDirSize: -1
 };
 
 export const DEFAULT_DN_PENDING_DELETION: DNPendingDeletion = {

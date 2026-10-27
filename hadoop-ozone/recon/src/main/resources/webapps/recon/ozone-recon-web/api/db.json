@@ -9249,9 +9249,15 @@
     "totalNodeQueriesFailed": 2
   },
   "pendingDeletionOM": {
-    "totalSize": 240430,
-    "pendingDirectorySize": 120040,
-    "pendingKeySize": 120390
+    "status": "FINISHED",
+    "totalBucketsQueried": 4,
+    "totalBucketQueriesFailed": 0,
+    "totalPurgeableSize": 120390,
+    "totalSnapshotTrappedSize": 120040,
+    "totalPurgeableKeys": 1520,
+    "totalPurgeableDirs": 42,
+    "totalPurgeableKeySize": 80390,
+    "totalPurgeableDirSize": 40000
   },
   "pendingDeletionSCM": {
     "totalBlocksize": 24030,
