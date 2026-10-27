@@ -74,10 +74,17 @@ export type DNPendingDeletion = {
   totalNodeQueriesFailed: number | null;
 }
 
+// Totals are only present once status is FINISHED; the in-progress response carries a message instead.
 export type OMPendingDeletion = {
-  totalSize: number;
-  pendingDirectorySize: number;
-  pendingKeySize: number;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "FINISHED" | "FAILED";
+  message?: string;
+  totalPurgeableSize?: number;
+  totalSnapshotTrappedSize?: number;
+  totalPurgeableKeys?: number;
+  totalPurgeableDirs?: number;
+  // -1 when OM does not report the purgeable split between deleted keys and deleted directories.
+  totalPurgeableKeySize?: number;
+  totalPurgeableDirSize?: number;
 }
 
 export type SCMPendingDeletion = {
@@ -90,4 +97,9 @@ export type Segment = {
   value: number;
   color: string;
   label: string | React.ReactNode;
+};
+
+export type SizeItem = {
+  label: string | React.ReactNode;
+  value: number;
 };

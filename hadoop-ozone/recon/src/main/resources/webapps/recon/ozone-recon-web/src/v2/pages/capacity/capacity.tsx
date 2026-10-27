@@ -43,6 +43,39 @@ type CapacityState = {
   lastUpdated: number;
 };
 
+type PendingScanStatus = "NOT_STARTED" | "IN_PROGRESS" | "FINISHED" | "FAILED";
+
+// Polls `poll()` at `intervalMs` while `status` is IN_PROGRESS, then calls
+// `onFinished()` exactly once when it transitions to FINISHED (not on the
+// initial load, where the endpoint was already fetched together with others).
+function usePendingScanPoll(
+  status: PendingScanStatus,
+  poll: () => void,
+  onFinished: () => void,
+  intervalMs: number
+) {
+  const pollRef = React.useRef(poll);
+  pollRef.current = poll;
+  const onFinishedRef = React.useRef(onFinished);
+  onFinishedRef.current = onFinished;
+  const isDrivingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (status === "IN_PROGRESS") {
+      isDrivingRef.current = true;
+      const timer = window.setInterval(() => pollRef.current(), intervalMs);
+      return () => clearInterval(timer);
+    }
+
+    if (isDrivingRef.current) {
+      isDrivingRef.current = false;
+      if (status === "FINISHED") {
+        onFinishedRef.current();
+      }
+    }
+  }, [status, intervalMs]);
+}
+
 const Capacity: React.FC<object> = () => {
   const PENDING_POLL_INTERVAL = 5 * 1000;
   const DN_CSV_DOWNLOAD_URL = '/api/v1/storageDistribution/download';
@@ -216,58 +249,37 @@ const Capacity: React.FC<object> = () => {
     }
   };
 
-  // --- DN pending-deletion scan polling --------------------------------------
+  // --- DN / OM pending-deletion scan polling ----------------------------------
   // The periodic full refresh (all four endpoints) is driven by useAutoReload
   // when Auto Refresh is enabled, and by the manual reload button otherwise.
-  // On top of that, whenever a DN scan is reported IN_PROGRESS we poll ONLY the
-  // DN endpoint at a fast cadence until it finishes, then refetch the other
-  // endpoints once so the aggregate pending-deletion numbers reflect the final
-  // DN data. This runs regardless of the Auto Refresh toggle, because a running
-  // scan must be driven to completion either way.
+  // On top of that, whenever a DN or OM scan is reported IN_PROGRESS we poll
+  // ONLY that endpoint at a fast cadence until it finishes, then refetch the
+  // other endpoints once so the aggregate pending-deletion numbers reflect the
+  // final data. This runs regardless of the Auto Refresh toggle, because a
+  // running scan must be driven to completion either way.
+  usePendingScanPoll(
+    dnPendingDeletes.data.status,
+    () => { if (!dnPendingDeletes.loading) dnPendingDeletes.refetch(); },
+    () => {
+      storageDistribution.refetch();
+      scmPendingDeletes.refetch();
+      omPendingDeletes.refetch();
+      setState({ lastUpdated: Number(moment()) });
+    },
+    PENDING_POLL_INTERVAL
+  );
 
-  // Refetch only the DN endpoint. Kept in a ref so the interval below always
-  // reads the current `loading` value instead of a stale closure (the effect
-  // does not re-run while the status stays IN_PROGRESS).
-  const pollDnScanRef = React.useRef<() => void>(() => {});
-  pollDnScanRef.current = () => {
-    if (!dnPendingDeletes.loading) {
+  usePendingScanPoll(
+    omPendingDeletes.data.status,
+    () => { if (!omPendingDeletes.loading) omPendingDeletes.refetch(); },
+    () => {
+      storageDistribution.refetch();
+      scmPendingDeletes.refetch();
       dnPendingDeletes.refetch();
-    }
-  };
-
-  // Refetch everything except the DN endpoint, to re-sync the OM / SCM / storage
-  // numbers with the DN data once the scan has finished.
-  const syncNonDnDataRef = React.useRef<() => void>(() => {});
-  syncNonDnDataRef.current = () => {
-    storageDistribution.refetch();
-    scmPendingDeletes.refetch();
-    omPendingDeletes.refetch();
-    setState({ lastUpdated: Number(moment()) });
-  };
-
-  // True while we are actively driving a DN scan, so that we sync the other
-  // endpoints exactly once when it transitions to FINISHED — and not on the
-  // initial load, where all four endpoints were already fetched together.
-  const isDrivingDnScanRef = React.useRef(false);
-
-  React.useEffect(() => {
-    const scanInProgress = dnPendingDeletes.data.status === "IN_PROGRESS";
-
-    if (scanInProgress) {
-      isDrivingDnScanRef.current = true;
-      const timer = window.setInterval(() => pollDnScanRef.current(), PENDING_POLL_INTERVAL);
-      return () => clearInterval(timer);
-    }
-
-    // Reached a terminal state (FINISHED / FAILED). If we were driving a scan,
-    // sync the other endpoints once (only on success) and stop tracking it.
-    if (isDrivingDnScanRef.current) {
-      isDrivingDnScanRef.current = false;
-      if (dnPendingDeletes.data.status === "FINISHED") {
-        syncNonDnDataRef.current();
-      }
-    }
-  }, [dnPendingDeletes.data.status]); // eslint-disable-line react-hooks/exhaustive-deps
+      setState({ lastUpdated: Number(moment()) });
+    },
+    PENDING_POLL_INTERVAL
+  );
 
   const dnReportStatus = (
     (dnPendingDeletes.data.totalNodeQueriesFailed ?? 0) > 0
@@ -371,6 +383,19 @@ const Capacity: React.FC<object> = () => {
     ? 0
     : scmPendingDeletes.data.totalReplicatedBlockSize;
 
+  // The in-progress (202) response has no totals, so treat missing values as unavailable instead of
+  // letting them turn the aggregate PENDING DELETION value into NaN.
+  const omPurgeableSize = omPendingDeletes.data.totalPurgeableSize ?? -1;
+  const omSnapshotHeldSize = omPendingDeletes.data.totalSnapshotTrappedSize ?? -1;
+  const hasOMPendingDeletionError = (
+    omPendingDeletes.data.status === "FAILED"
+    || (omPendingDeletes.data.status === "FINISHED" && (omPurgeableSize < 0 || omSnapshotHeldSize < 0))
+  );
+
+  const omPendingDeletionSize = (omPurgeableSize < 0 || omSnapshotHeldSize < 0)
+    ? 0
+    : omPurgeableSize + omSnapshotHeldSize;
+
   return (
     <>
       <div className='page-header-v2'>
@@ -439,16 +464,17 @@ const Capacity: React.FC<object> = () => {
           }, {
             title: (
               dnPendingDeletes.data.status !== "FINISHED" || dnPendingDeletes.loading
+              || omPendingDeletes.data.status !== "FINISHED" || omPendingDeletes.loading
               ? (
                 <span>
                   PENDING DELETION
-                  <WrappedInfoIcon title="DN pending deletion data is not yet available. It will be fetched once the pending deletion scan is finished on all datanodes." />
+                  <WrappedInfoIcon title="OM/DN pending deletion data is not yet available. It will be fetched once the pending deletion scan is finished." />
                 </span>
               )
-              : 'PENDING DELETION' 
+              : 'PENDING DELETION'
             ),
             value: (
-              omPendingDeletes.data.totalSize
+              omPendingDeletionSize
               + scmReplicatedPendingDeletionSize
               + (dnPendingDeletes.data.totalPendingDeletionSize ?? 0)
             ),
@@ -462,15 +488,27 @@ const Capacity: React.FC<object> = () => {
             showDropdown={false}
             dataDetails={[{
               title: 'OZONE MANAGER',
-              size: omPendingDeletes.data.totalSize ?? 0,
+              loading: omPendingDeletes.loading
+                || (omPendingDeletes.data.status !== "FINISHED" && omPendingDeletes.data.status !== "FAILED"),
+              size: omPendingDeletionSize,
+              hasError: hasOMPendingDeletionError,
+              errorMessage: omPendingDeletes.data.message ?? 'OM pending deletion details are currently unavailable.',
+              errorTestId: 'pending-deletion-om-error',
               breakdown: [{
-                label: 'KEYS',
-                value: omPendingDeletes.data.pendingKeySize,
+                label: 'PURGEABLE',
+                value: omPurgeableSize,
                 color: '#f4a233'
               }, {
-                label: 'DIRECTORIES',
-                value: omPendingDeletes.data.pendingDirectorySize,
+                label: 'SNAPSHOT HELD',
+                value: omSnapshotHeldSize,
                 color: '#10073b'
+              }],
+              sizes: [{
+                label: 'PURGEABLE DIRECTORIES',
+                value: omPendingDeletes.data.totalPurgeableDirSize ?? -1
+              }, {
+                label: 'PURGEABLE KEYS',
+                value: omPendingDeletes.data.totalPurgeableKeySize ?? -1
               }]
             }, {
               title: 'STORAGE CONTAINER MANAGER',

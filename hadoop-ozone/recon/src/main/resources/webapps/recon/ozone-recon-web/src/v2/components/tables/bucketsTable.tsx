@@ -18,6 +18,7 @@
 
 import React from 'react';
 
+import filesize from 'filesize';
 import moment from 'moment';
 import Table, {
   ColumnProps,
@@ -199,6 +200,21 @@ export const COLUMNS: ColumnsType<Bucket> = [
         quotaType='namespace'
       />
     )
+  },
+  {
+    title: 'Trapped Bytes',
+    dataIndex: 'trappedBytes',
+    key: 'trappedBytes',
+    sorter: (a: Bucket, b: Bucket) => a.trappedBytes - b.trappedBytes,
+    render: (trappedBytes: number) =>
+      trappedBytes < 0 ? 'Computing…' : filesize(trappedBytes, { round: 1 })
+  },
+  {
+    title: 'Trapped Keys',
+    dataIndex: 'trappedKeys',
+    key: 'trappedKeys',
+    sorter: (a: Bucket, b: Bucket) => a.trappedKeys - b.trappedKeys,
+    render: (trappedKeys: number) => trappedKeys < 0 ? 'Computing…' : trappedKeys
   },
   {
     title: 'Source Volume',

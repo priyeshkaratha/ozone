@@ -20,7 +20,7 @@ import { EChart } from '@/components/eChart/eChart';
 import { GraphLegendIcon } from '@/utils/themeIcons';
 import { cardHeadStyle, statisticValueStyle } from '@/v2/pages/capacity/constants/styles.constants';
 import CapacityDetailError from '@/v2/pages/capacity/components/CapacityDetailError';
-import { Segment } from '@/v2/types/capacity.types';
+import { Segment, SizeItem } from '@/v2/types/capacity.types';
 import { DownloadOutlined } from '@ant-design/icons';
 import { Card, Divider, Row, Select, Spin, Statistic } from 'antd';
 import filesize from 'filesize';
@@ -30,6 +30,7 @@ type DataDetailItem = {
   title: string | React.ReactNode;
   size: number;
   breakdown: Segment[];
+  sizes?: SizeItem[];
   loading?: boolean;
   hasError?: boolean;
   errorMessage?: string;
@@ -195,6 +196,14 @@ const CapacityDetail: React.FC<CapacityDetailProps> = (
                               <EChart
                                 option={getEchartOptions(data.title, data)}
                                 style={{ height: '40px', width: '100%', margin: '10px 0px' }} />
+                              {data.sizes?.map((item, sizeIdx) => (
+                                <div key={`data-detail-size-${item.label}-${sizeIdx}`} className='data-detail-breakdown-item'>
+                                  <span className="data-detail-breakdown-label">{item.label}</span>
+                                  <span className="data-detail-breakdown-value">
+                                    {item.value < 0 ? 'N/A' : filesize(item.value, {round: 1})}
+                                  </span>
+                                </div>
+                              ))}
                               {idx < dataDetails.length - 1 && <Divider />}
                             </Row>
                           )

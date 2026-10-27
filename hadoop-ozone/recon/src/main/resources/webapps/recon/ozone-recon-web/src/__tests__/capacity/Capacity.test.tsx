@@ -85,6 +85,10 @@ describe('Capacity Page', () => {
     await waitFor(() =>
       expect(pendingDeletionCard).toHaveTextContent(/OZONE MANAGER\s*2\s*KB/i)
     );
+    expect(pendingDeletionCard).toHaveTextContent(/PURGEABLE\s*1\s*KB/i);
+    expect(pendingDeletionCard).toHaveTextContent(/SNAPSHOT HELD\s*1\s*KB/i);
+    expect(pendingDeletionCard).toHaveTextContent(/PURGEABLE DIRECTORIES\s*256\s*B/i);
+    expect(pendingDeletionCard).toHaveTextContent(/PURGEABLE KEYS\s*768\s*B/i);
     expect(pendingDeletionCard)
       .toHaveTextContent(/STORAGE CONTAINER MANAGER\s*2\s*KB/i);
     expect(pendingDeletionCard).toHaveTextContent(/DATANODES\s*3\s*KB/i);
@@ -238,6 +242,40 @@ describe('Capacity Page', () => {
     expect(pendingDeletionCard).toHaveTextContent(/STORAGE CONTAINER MANAGER\s*N\/A/i);
     expect(await screen.findByTestId('pending-deletion-scm-error')).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByTestId('echart')).toHaveLength(4));
+  });
+
+  test('shows om-only error state when OM pending deletion collection fails', async () => {
+    capacityServer.use(
+      http.get('/api/v1/pendingDeletion', ({ request }) => {
+        const url = new URL(request.url);
+        const component = url.searchParams.get('component');
+        switch (component) {
+        case 'om':
+          return HttpResponse.json({ status: 'FAILED', message: 'OM unreachable' }, { status: 202 });
+        case 'scm':
+          return HttpResponse.json(mockResponses.ScmPendingDeletion);
+        case 'dn':
+          return HttpResponse.json(mockResponses.DnPendingDeletion);
+        default:
+          return HttpResponse.json({
+            message: 'Unsupported pending deletion component.',
+          }, { status: 400 });
+        }
+      })
+    );
+
+    render(<Capacity />);
+
+    const pendingDeletionTitle = await screen.findByText('Pending Deletion');
+    const pendingDeletionCard = pendingDeletionTitle.closest('.ant-card');
+    expect(pendingDeletionCard).not.toBeNull();
+    if (!pendingDeletionCard) {
+      return;
+    }
+
+    expect(await screen.findByTestId('pending-deletion-om-error')).toHaveTextContent('OM unreachable');
+    expect(pendingDeletionCard).toHaveTextContent(/OZONE MANAGER\s*N\/A/i);
+    expect(pendingDeletionCard).toHaveTextContent(/STORAGE CONTAINER MANAGER\s*2\s*KB/i);
   });
 
   test('node selector dropdown only lists datanodes from pending deletion API when cluster has more than 15 DNs', async () => {

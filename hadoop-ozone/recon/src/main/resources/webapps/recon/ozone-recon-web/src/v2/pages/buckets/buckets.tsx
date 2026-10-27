@@ -57,7 +57,8 @@ const defaultColumns = COLUMNS.map(column => ({
 
 const DEFAULT_BUCKET_RESPONSE: BucketResponse = {
   totalCount: 0,
-  buckets: []
+  buckets: [],
+  trappedBytesCollectionStatus: "NOT_STARTED"
 };
 
 function getVolumeBucketMap(data: Bucket[]) {
@@ -178,7 +179,9 @@ const Buckets: React.FC<{}> = () => {
         quotaInNamespace: bucket.quotaInNamespace,
         owner: bucket.owner,
         acls: bucket.acls,
-        replicationConfigInfo: bucket.replicationConfigInfo
+        replicationConfigInfo: bucket.replicationConfigInfo,
+        trappedBytes: bucket.trappedBytes,
+        trappedKeys: bucket.trappedKeys
       }));
 
       const volumeBucketMap: Map<string, Set<Bucket>> = getVolumeBucketMap(buckets);
