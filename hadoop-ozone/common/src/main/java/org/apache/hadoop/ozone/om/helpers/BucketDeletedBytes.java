@@ -36,6 +36,8 @@ public final class BucketDeletedBytes {
   private final long purgeableKeys;
   private final long snapshotTrappedDirs;
   private final long purgeableDirs;
+  private final long purgeableKeyBytes;
+  private final long purgeableDirBytes;
 
   public BucketDeletedBytes(
       long snapshotTrappedBytes,
@@ -44,12 +46,28 @@ public final class BucketDeletedBytes {
       long purgeableKeys,
       long snapshotTrappedDirs,
       long purgeableDirs) {
+    this(snapshotTrappedBytes, purgeableBytes, snapshotTrappedKeys, purgeableKeys, snapshotTrappedDirs,
+        purgeableDirs, -1L, -1L);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public BucketDeletedBytes(
+      long snapshotTrappedBytes,
+      long purgeableBytes,
+      long snapshotTrappedKeys,
+      long purgeableKeys,
+      long snapshotTrappedDirs,
+      long purgeableDirs,
+      long purgeableKeyBytes,
+      long purgeableDirBytes) {
     this.snapshotTrappedBytes = snapshotTrappedBytes;
     this.purgeableBytes = purgeableBytes;
     this.snapshotTrappedKeys = snapshotTrappedKeys;
     this.purgeableKeys = purgeableKeys;
     this.snapshotTrappedDirs = snapshotTrappedDirs;
     this.purgeableDirs = purgeableDirs;
+    this.purgeableKeyBytes = purgeableKeyBytes;
+    this.purgeableDirBytes = purgeableDirBytes;
   }
 
   public long getSnapshotTrappedBytes() {
@@ -74,6 +92,20 @@ public final class BucketDeletedBytes {
 
   public long getPurgeableDirs() {
     return purgeableDirs;
+  }
+
+  /**
+   * Purgeable bytes of entries in the deleted table, or -1 if OM did not report it.
+   */
+  public long getPurgeableKeyBytes() {
+    return purgeableKeyBytes;
+  }
+
+  /**
+   * Purgeable bytes of files found under deleted directories, or -1 if OM did not report it.
+   */
+  public long getPurgeableDirBytes() {
+    return purgeableDirBytes;
   }
 }
 
