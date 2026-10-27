@@ -1965,7 +1965,9 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
         stats.getSnapshotTrappedKeys(),
         stats.getPurgeableKeys(),
         stats.getSnapshotTrappedDirs(),
-        stats.getPurgeableDirs());
+        stats.getPurgeableDirs(),
+        stats.getPurgeableKeyBytes(),
+        stats.getPurgeableDirBytes());
   }
 
   /**

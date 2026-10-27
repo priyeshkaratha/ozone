@@ -2116,7 +2116,9 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         response.getSnapshotTrappedKeys(),
         response.getPurgeableKeys(),
         response.getSnapshotTrappedDirs(),
-        response.getPurgeableDirs());
+        response.getPurgeableDirs(),
+        response.hasPurgeableKeyBytes() ? response.getPurgeableKeyBytes() : -1L,
+        response.hasPurgeableDirBytes() ? response.getPurgeableDirBytes() : -1L);
   }
 
   @Override
