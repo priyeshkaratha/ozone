@@ -1101,8 +1101,7 @@ class TestKeyLifecycleService extends OzoneTestBase {
 
       GenericTestUtils.LogCapturer logCapturer = GenericTestUtils.LogCapturer.captureLogs(
           LoggerFactory.getLogger(KeyLifecycleService.class));
-      // Keep the lifecycle policy until the scan finishes so scan state can be persisted.
-      runSingleLifecycleScan(volumeName, bucketName, false);
+      runSingleLifecycleScanAndDeleteConfiguration(volumeName, bucketName);
 
       String output = logCapturer.getOutput();
       String bucketKey = metadataManager.getBucketKey(volumeName, bucketName);
